@@ -1,6 +1,5 @@
 import setuptools
 
-
 setuptools.setup(
     name='dctr', 
     version='0.0.0',

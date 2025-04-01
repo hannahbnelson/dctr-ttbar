@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
             #'environment_file': 'topEFT-env.tar.gz',
             'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"ttbarEFT": ["ttbarEFT", "setup.py"]},
+                extra_pip_local = {"dctr": ["dctr", "setup.py"]},
             ),
             # 'extra_input_files': ["nanogen_processor.py"],
             'extra_input_files' : [proc_file],
@@ -284,7 +284,10 @@ if __name__ == '__main__':
     if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
     out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
     print(f"\nSaving output in {out_pkl_file}...")
+    #pd.to_parquet(os.path.join(outpath+".parquet"))  # saves accumulator to parquet
+    #"""
     with gzip.open(out_pkl_file, "wb") as fout:
         cloudpickle.dump(output, fout)
+    #"""
     print("Done!")
 
