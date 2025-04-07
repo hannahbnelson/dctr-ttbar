@@ -74,6 +74,7 @@ micromamba activate torch
 To normally submit workers, use the same `condor_submit_wokers` command above. 
 Currently, there is an authentication issues that causes an error when trying to run condor jobs on condorfe that access files via xrootd. Temporarily, use the script `condor_custom` to submit workers using the following command: 
 ```bash
+cd dctr/analysis
 python condor_custom  --manager ${USER}-workqueue-coffea --cores <Ncores> --memory <Nmemory (MG)> --disk 100000 --num-workers <Nworkers> 
 ```
 
