@@ -1,0 +1,11 @@
+analysis/*-tmp-/
+analysis/topeft-envs/
+analysis/wq*.summary
+build/
+dctr.egg-info/
+dctr/__pycache__/
+dctr/modules/__pycache__/
+analysis/__pycache__/
+analysis/*.pkl.gz
+*.pkl.gz
+analysis/conda_spec.yml

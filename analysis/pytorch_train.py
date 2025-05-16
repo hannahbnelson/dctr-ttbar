@@ -13,7 +13,7 @@ import logging
 import time
 
 import matplotlib.pyplot as plt
-import topcoffea.modules.utils as utils
+# import topcoffea.modules.utils as utils
 
 class WeightedDataset(Dataset):
     def __init__(self, data, weights, targets):
@@ -46,29 +46,29 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
         return self.main_module(x)
 
-# not using this now, probably could convert my loop below to work for this to make it easier to read
-def train(model, dataloader, loss_fn, optimizer, device="cpu"):
-    size = len(dataloader.dataset)
-    model.train()
-    total_loss = 0.0
+# # not using this now, probably could convert my loop below to work for this to make it easier to read
+# def train(model, dataloader, loss_fn, optimizer, device="cpu"):
+#     size = len(dataloader.dataset)
+#     model.train()
+#     total_loss = 0.0
     
-    for batch_samples, batch_weights, batch_targets in dataloader:
-        batch_samples, batch_weights, batch_targets = (
-            batch_samples.to(device),
-            batch_weights.to(device),
-            batch_targets.to(device)
-        )
+#     for batch_samples, batch_weights, batch_targets in dataloader:
+#         batch_samples, batch_weights, batch_targets = (
+#             batch_samples.to(device),
+#             batch_weights.to(device),
+#             batch_targets.to(device)
+#         )
 
-        optimizer.zero_grad()
-        outputs = model(batch_samples).squeeze(1)
-        loss = loss_fn(outputs, batch_targets)
-        loss.backward()
-        optimizer.step()
+#         optimizer.zero_grad()
+#         outputs = model(batch_samples).squeeze(1)
+#         loss = loss_fn(outputs, batch_targets)
+#         loss.backward()
+#         optimizer.step()
 
-        total_loss += final_loss.item()
+#         total_loss += final_loss.item()
 
-    avg_loss = total_loss / len(dataloader)
-    print(f"Average Training Loss: {avg_loss:.4f}")
+#     avg_loss = total_loss / len(dataloader)
+#     print(f"Average Training Loss: {avg_loss:.4f}")
 
 
 # this function comes from https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html
@@ -80,71 +80,81 @@ def test(dataloader, model, loss_fn):
     model.eval()
     test_loss, correct = 0, 0
     with torch.no_grad():
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
-            test_loss += loss_fn(pred, y).item()
+        for batch_samples, batch_weights, batch_targets in dataloader:
+            pred = model(batch_samples).squeeze(1)
+            test_loss += loss_fun(outputs, batch_targets)
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
     test_loss /= num_batches
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
-
 def main():
-	fSMEFT = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_SMEFT.pkl.gz"
-	fpowheg = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_powheg.pkl.gz" 
+    fSMEFT = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_SMEFT.pkl.gz"
+    # fpowheg = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_powheg.pkl.gz" 
+    fpowheg = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_powheg_skimmed.pkl.gz"
 
-	rando = 1234
+    rando = 1234
 
-	inputs_smeft= pickle.load(gzip.open(fSMEFT)).get()
-	smeft_nevents = inputs_smeft.shape[0]
+    inputs_smeft = pickle.load(gzip.open(fSMEFT)).get()
+    # smeft_nevents = inputs_smeft.shape[0]
 
-	# load the fpowheg file, use .query to only select events with positive weights, shuffle remaining events, then select the same number of events as the smeft sample
-	inputs_powheg = (((pickle.load(gzip.open(fpowheg)).get()).query('weights>0')).sample(frac=1, random_state=rando).reset_index(drop=True)).iloc[:smeft_nevents]
+    # load the fpowheg file, use .query to only select events with positive weights, shuffle remaining events, then select the same number of events as the smeft sample
+    inputs_powheg = pickle.load(gzip.open(fpowheg))
+    # inputs_powheg = (((pickle.load(gzip.open(fpowheg)).get()).query('weights>0')).sample(frac=1, random_state=rando).reset_index(drop=True)).iloc[:smeft_nevents]
 
-	assert inputs_smeft.shape == inputs_powheg.shape, f"SMEFT and Powheg inputs are not the same shape.\n SMEFT shape: {inputs_smeft.shape} \n Powheg shape:{inputs_powheg.shape}"
+    assert inputs_smeft.shape == inputs_powheg.shape, f"SMEFT and Powheg inputs are not the same shape.\n SMEFT shape: {inputs_smeft.shape} \n Powheg shape:{inputs_powheg.shape}"
 
-	smeft_train = inputs_smeft.sample(frac=0.7, random_state=rando)
-	smeft_test = inputs_smeft.drop(smeft_train.index)
-	powheg_train = inputs_powheg.sample(frac=0.7, random_state=rando)
-	powheg_test = inputs_powheg.drop(powheg_train.index)
-	truth_smeft = np.ones_like(smeft_train['weights'])
-	truth_powheg = np.zeros_like(powheg_train['weights'])
+    smeft_train = inputs_smeft.sample(frac=0.7, random_state=rando)
+    smeft_test = inputs_smeft.drop(smeft_train.index)
+    powheg_train = inputs_powheg.sample(frac=0.7, random_state=rando)
+    powheg_test = inputs_powheg.drop(powheg_train.index)
+    truth_smeft = np.ones_like(smeft_train['weights'])
+    truth_powheg = np.zeros_like(powheg_train['weights'])
 
-	weights_smeft = np.ones_like(smeft_train['weights'])
-	weights_powheg = np.ones_like(powheg_train['weights'])
+    weights_smeft = np.ones_like(smeft_train['weights'])
+    weights_powheg = np.ones_like(powheg_train['weights'])
 
-	z = torch.from_numpy(np.concatenate([smeft_train, powheg_train], axis=0).astype(np.float32))
-	w = torch.from_numpy(np.concatenate([weights_smeft, weights_powheg], axis=0).astype(np.float32))
-	y = torch.from_numpy(np.concatenate([truth_smeft, truth_powheg], axis=0).astype(np.float32))
+    z = torch.from_numpy(np.concatenate([smeft_train, powheg_train], axis=0).astype(np.float32))
+    w = torch.from_numpy(np.concatenate([weights_smeft, weights_powheg], axis=0).astype(np.float32))
+    y = torch.from_numpy(np.concatenate([truth_smeft, truth_powheg], axis=0).astype(np.float32))
 
-	train_dataset = WeightedDataset(z, w, y)
-	train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    train_dataset = WeightedDataset(z, w, y)
+    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
 
-	input_dim = z.shape[1]
-	model = NeuralNetwork(input_dim)
+    test_z = torch.from_numpy(np.concatenate([smeft_test, powheg_test], axis=0).astype(np.float32))
+    test_y = torch.from_numpy(np.concatenate([np.ones_like(smeft_test['weights']), np.zeros_like(powheg_test['weights'])], axis=0).astype(np.float32))
 
-	loss_fn = nn.BCELoss(reduction='mean')
-	optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    input_dim = z.shape[1]
+    model = NeuralNetwork(input_dim)
 
-	nepochs = 50
-	for epoch in range(nepochs):
-		epoch_loss = 0.0
-		model.train()	# sets the model in training mode. Crucial for layers that behave differently during training vs evaluation (e.g. dropout, mean, variance)
-		for batch_samples, batch_weights, batch_targets in train_dataloader:
-			optimizer.zero_grad()						# clear the gradients from the previous batch
-			# forward pass
-			outputs = model(batch_samples).squeeze(1)	# perform the forward pass to get the model's predictions
-			loss = loss_fun(outputs, batch_targets)		# calculate the loss
-			# backward pass
-			loss.backward()								# calculate the gradients of the loss w.r.t. the model's parameters
-			optimizer.step()							# update the model's parameters using the calculated gradients
+    loss_fn = nn.BCELoss(reduction='mean')
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-			epoch_loss += loss.item()
+    trainLoss = []
+    testLoss = []
 
-		final_loss = epoch_loss / len(train_dataloader)
-		print(f"Epoch {epoch+1}/{num_epochs}, Loss: {final_loss}")
+    nepochs = 50
+    for epoch in range(nepochs):
+        epoch_loss = 0.0
+        model.train()   # sets the model in training mode. Crucial for layers that behave differently during training vs evaluation (e.g. dropout, mean, variance)
+        for batch_samples, batch_weights, batch_targets in train_dataloader:
+            optimizer.zero_grad()                       # clear the gradients from the previous batch
+            # forward pass
+            outputs = model(batch_samples).squeeze(1)   # perform the forward pass to get the model's predictions
+            loss = loss_fn(outputs, batch_targets)     # calculate the loss
+            # backward pass
+            loss.backward()                             # calculate the gradients of the loss w.r.t. the model's parameters
+            optimizer.step()                            # update the model's parameters using the calculated gradients
+
+            epoch_loss += loss.item()
+
+        trainLoss_epoch = epoch_loss / len(train_dataloader)
+        trainLoss.append(trainLoss_epoch)
+        print(f"Epoch {epoch+1}/{nepochs}, Loss: {trainLoss_epoch}")
+        testLoss_epoch = loss_fn(model(test_z).squeeze(1), test_y)
+        testLoss.append(testLoss_epoch)
+        print(f"Epoch {epoch+1}/{nepochs}, TestLoss: {testLoss_epoch}")
 
 if __name__=="__main__":
     main()
