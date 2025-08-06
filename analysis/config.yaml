@@ -1,0 +1,28 @@
+model:
+  - type: Linear
+    in_dim: 0
+    out_dim: 2048
+  - type: Activation
+    name: LeakyReLU
+  - type: Linear
+    in_dim: 2048
+    out_dim: 1024
+  - type: Activation
+    name: LeakyReLU
+  - type: Linear
+    in_dim: 1024
+    out_dim: 1
+  - type: Activation
+    name: Sigmoid
+
+params:
+  nepochs: 150
+  batch_size: 1024
+  learning_rate: 1.0e-3
+  sched_factor: 0.1
+  sched_patience: 10
+  sched_threshold: 1.0e-4
+  
+monitoring: 
+  checkpoint_frequency: 20
+  validation_frequency: 10
