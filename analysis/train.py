@@ -3,8 +3,12 @@ import pickle
 import gzip
 import shutil
 import os
+import sys
 from pathlib import Path
 import argparse 
+import logging
+import yaml
+import json
 
 import hist
 import numpy as np
@@ -20,7 +24,7 @@ from torch import optim
 import mplhep as hep
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, f1_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, roc_curve, f1_score, precision_score, recall_score
 
 class WeightedDataset(Dataset):
     def __init__(self, data, weights, targets):
@@ -38,66 +42,38 @@ class WeightedDataset(Dataset):
         return sample, weights, target
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, config):
         super().__init__()
-        self.main_module= nn.Sequential(
-            nn.Linear(input_dim, 300),
-            nn.LeakyReLU(),
-            # nn.Linear(128,128),
-            # nn.LeakyReLU(),
-            nn.Linear(300, 128),
-            nn.LeakyReLU(),
-            nn.Linear(128, 1),
-            nn.Sigmoid()
-        )
+
+        layers = []
+        current_input_dim = input_dim
+
+        for layer in config: 
+            layer_type = layer['type']
+            if layer_type == 'Linear':
+                layers.append(nn.Linear(current_input_dim, layer['out_dim']))
+                current_input_dim = layer['out_dim']
+            elif layer_type == 'Activation':
+                name = layer['name']
+                if name == 'LeakyReLU': 
+                    layers.append(nn.LeakyReLU()) 
+                elif name == 'Sigmoid': 
+                    layers.append(nn.Sigmoid())
+                else: 
+                    raise ValueError(f"Unknown Activation layer name: {name}")
+            elif layer_type == 'Dropout':
+                layers.append(nn.Dropout(layer['p']))
+            else: 
+                raise ValueError(f"Unknown layer type: {layer_type}")
+
+        self.main_module = nn.Sequential(*layers) 
+
     def forward(self, x):
         return self.main_module(x)
 
-# # not using this now, probably could convert my loop below to work for this to make it easier to read
-# def train(model, dataloader, loss_fn, optimizer, device="cpu"):
-#     size = len(dataloader.dataset)
-#     model.train()
-#     total_loss = 0.0
-    
-#     for batch_samples, batch_weights, batch_targets in dataloader:
-#         batch_samples, batch_weights, batch_targets = (
-#             batch_samples.to(device),
-#             batch_weights.to(device),
-#             batch_targets.to(device)
-#         )
-
-#         optimizer.zero_grad()
-#         outputs = model(batch_samples).squeeze(1)
-#         loss = loss_fn(outputs, batch_targets)
-#         loss.backward()
-#         optimizer.step()
-
-#         total_loss += final_loss.item()
-
-#     avg_loss = total_loss / len(dataloader)
-#     print(f"Average Training Loss: {avg_loss:.4f}")
-
-
-# this function comes from https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html
-# in section https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html
-# probably I need something similar 
-def test(dataloader, model, loss_fn):
-    size = len(dataloader.dataset)
-    num_batches = len(dataloader)
-    model.eval()
-    test_loss, correct = 0, 0
-    with torch.no_grad():
-        for batch_samples, batch_weights, batch_targets in dataloader:
-            pred = model(batch_samples).squeeze(1)
-            test_loss += loss_fun(outputs, batch_targets)
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-    test_loss /= num_batches
-    correct /= size
-    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-
 
 # Get predictions from loaded model
-def get_predictions(model, data_input)
+def get_predictions(model, data_input):
     all_probabilities = []
 
     model.eval() # set model into eval mode
@@ -109,7 +85,7 @@ def get_predictions(model, data_input)
 
         # For binary classification, outputs are probabilities (single value per sample)
         # Flatten to 1D array if outputs are (batch_size, 1)
-        probabilities = outputs.squeeze(1).numpy()
+        probabilities = outputs.squeeze(1).cpu().numpy()
 
         all_probabilities.extend(probabilities)
 
@@ -118,23 +94,24 @@ def get_predictions(model, data_input)
 
 def make_basic_plots(metrics, outdir):
     hep.style.use("CMS")
-    basic_plots = {"training_loss": metrics['train_loss'], 
-                    "validation_loss": metrics['val_loss'], 
-                    "validation_accuracy": metrics['val_accuracy'],
-                    "validation_precision": metrics['val_precision'], 
-                    "validation_recall": metrics['val_recall'],
-                    }
+    # basic_plots = {"training_loss": metrics['train_loss'], 
+    #                 "validation_loss": metrics['val_loss'], 
+    #                 "validation_accuracy": metrics['val_accuracy'],
+    #                 "validation_precision": metrics['val_precision'], 
+    #                 "validation_recall": metrics['val_recall'],
+    #                 }
 
-    for item in basic_plots.keys(): 
+    for name, vals in metrics.items(): 
         fig, ax = plt.subplots()
-        ax.plot(metrics['epoch'], basic_plots[item])    
+        ax.plot(metrics['epoch'], vals)    
         ax.set_xlabel("epoch")
-        ax.set_ylabel(item)
-        ax.set_title(item)
+        ax.set_ylabel(name)
+        ax.set_title(name)
 
-        outname = os.path.join(outdir, item)
+        outname = os.path.join(outdir, name)
         fig.savefig(f"{outname}.png")
-        print(f"figure saved in {outname}.png")
+        logging.info(f"figure saved in {outname}.png")
+
 
 def make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, outdir):
     hep.style.use("CMS")
@@ -150,7 +127,7 @@ def make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, outdir):
 
     outname = os.path.join(outdir, "NNoutputs")
     fig.savefig(f"{outname}.png")
-    print(f"figure saved in {outname}.png")
+    logging.info(f"figure saved in {outname}.png")
 
 
 def make_roc_plot(true_labels, probabilities, outdir):
@@ -170,18 +147,31 @@ def make_roc_plot(true_labels, probabilities, outdir):
 
     outname = os.path.join(outdir, "ROC")
     fig.savefig(f"{outname}.png")
-    print(f"figure saved in {outname}.png")
+    logging.info(f"figure saved in {outname}.png")
 
 
-def normalize_df(df):
+def make_standardization_df(df, outdir):
 
     # make a copy as to not change original df
     norm_df = df.copy()
-    
+
     # select only numerical columns
     numerical_cols = df.select_dtypes(include=np.number).columns
     means = df.mean()
     stdvs = df.std()
+
+    means.to_csv(os.path.join(outdir, "standardization_means.csv"), index=True)
+    stdvs.to_csv(os.path.join(outdir, "standardization_stds.csv"), index=True)
+
+    return means, stdvs
+
+
+def standardize_df(df, means, stdvs):
+    # means and stdvs are separately computed on the whole dataset
+    # means and stdvs are also pandas dataframes
+
+    # make a copy as to not change original df
+    norm_df = df.copy()
 
     # if stdv is 0, set to 0 
     # if stdv is not 0, normalized = (orig - mean)/stdv
@@ -194,14 +184,20 @@ def normalize_df(df):
     return norm_df
 
 
-def main(outdir):
+def main(outdir, config, cores=1):
 
     rando = 1234
-    torch.manual_seed(0)
+    torch.manual_seed(rando)
     current_path = Path(__file__)
     base_path = outdir
-    # base_path = "/users/hnelson2/dctr/training_outputs"
-    # now = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+
+    logger_path = os.path.join(base_path, "output.log")
+    logger = logging.getLogger(__name__)
+    logging.getLogger('matplotlib.font_manager').disabled = True
+    logging.basicConfig(filename=logger_path, encoding='utf-8', level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%d-%m-%Y %H:%M:%S')
+
+    logger.info(f"base_path: {base_path}")
+    logger.info(f"cores: {cores}")
 
     # make output subdirectories
     output_dir = os.path.join(base_path, "training_outputs")
@@ -209,26 +205,16 @@ def main(outdir):
     plotting_dir = os.path.join(base_path, "plots")
     os.makedirs(plotting_dir, exist_ok=True)
 
-    # making working directory
-    # outdir = os.path.join(base_path, f"train_{now}")
-    # os.makedirs(outdir, exist_ok=False)
-    # print(f"working directory: {outdir}")
-
-    # # make plotting dir inside working dir
-    # plot_dir = os.path.join(outdir, "plots/")
-    # os.makedirs(plot_dir, exist_ok=True)
-    # print(f"plotting dir: {plot_dir}")
-
-    # copy run script to workign directory
-    shutil.copy(current_path, os.path.join(base_path, "training.py"))
-    print(f"training script {current_path} copied to {os.path.join(base_path, 'training.py')}")
-
-
+    # set device and load in hyperparameters from config file
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info(f"using device: {device}")
+
+    params = config['params']
 
     # create training datasets
-    train_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/smeft_training.pkl.gz")).drop(['weights'], axis=1)
-    train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/powheg_training.pkl.gz")).drop(['weights'], axis=1)
+    train_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_smeft_training.pkl.gz")).drop(['weights'], axis=1)
+    # train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_powheg_training.pkl.gz")).drop(['weights'], axis=1)
+    train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/3007_powheg_training.pkl.gz")).drop(['weights'], axis=1)
 
     weights_train_smeft = np.ones_like(train_smeft['mtt'])
     weights_train_powheg = np.ones_like(train_powheg['mtt'])
@@ -237,21 +223,24 @@ def main(outdir):
     truth_train_powheg = np.zeros_like(train_powheg['mtt'])
 
     # create validation datasets
-    validation_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/smeft_validation.pkl.gz")).drop(['weights'], axis=1)
-    validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/powheg_validation.pkl.gz")).drop(['weights'], axis=1)
+    validation_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_smeft_validation.pkl.gz")).drop(['weights'], axis=1)
+    # validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_powheg_validation.pkl.gz")).drop(['weights'], axis=1)
+    validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/3007_powheg_validation.pkl.gz")).drop(['weights'], axis=1)
     weights_validation_smeft = np.ones_like(validation_smeft['mtt'])
     weights_validation_powheg = np.ones_like(validation_powheg['mtt'])
     truth_validation_smeft = np.ones_like(validation_smeft['mtt'])
     truth_validation_powheg = np.zeros_like(validation_powheg['mtt'])
 
-    # normalize smeft inputs
-    numerical_cols = train_smeft.select_dtypes(include=np.number).columns
+    ### standardize inputs
+    # find means and stdvs for each variable using all of the data
+    means, stdvs = make_standardization_df(pd.concat([train_smeft, train_powheg, validation_smeft, validation_powheg]), outdir=base_path)
 
-    norm_train_smeft = normalize_df(train_smeft)
-    norm_train_powheg = normalize_df(train_powheg)
+    # use that mean, stdv to standardize all datasets
+    norm_train_smeft = standardize_df(train_smeft, means, stdvs)
+    norm_train_powheg = standardize_df(train_powheg, means, stdvs)
 
-    norm_val_smeft = normalize_df(validation_smeft)
-    norm_val_powheg = normalize_df(validation_powheg)
+    norm_val_smeft = standardize_df(validation_smeft, means, stdvs)
+    norm_val_powheg = standardize_df(validation_powheg, means, stdvs)
 
     # create datasets 
     z = torch.from_numpy(np.concatenate([norm_train_smeft, norm_train_powheg], axis=0).astype(np.float32))
@@ -259,27 +248,37 @@ def main(outdir):
     y = torch.from_numpy(np.concatenate([truth_train_smeft, truth_train_powheg], axis=0).astype(np.float32))
 
     train_dataset = WeightedDataset(z, w, y)
-    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=params['batch_size'], shuffle=True, num_workers=cores)
 
     z_val = torch.from_numpy(np.concatenate([norm_val_smeft, norm_val_powheg], axis=0).astype(np.float32))
     w_val = torch.from_numpy(np.concatenate([weights_validation_smeft, weights_validation_powheg], axis=0).astype(np.float32))
     y_val = torch.from_numpy(np.concatenate([truth_validation_smeft, truth_validation_powheg], axis=0).astype(np.float32))
 
     validation_dataset = WeightedDataset(z_val, w_val, y_val)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=128, shuffle=True)
-
+    validation_dataloader = DataLoader(validation_dataset, batch_size=params['batch_size'], shuffle=True, num_workers=cores)    
 
     ### initialize model 
+    model_architecture = config['model']
     input_dim = z.shape[1]
-    model = NeuralNetwork(input_dim)
+    model = NeuralNetwork(input_dim, model_architecture)
     model.to(device)
 
     loss_fn = nn.BCELoss(reduction='mean')
-    optimizer = optim.Adam(model.parameters(), lr=1e-8)
+    optimizer = optim.Adam(model.parameters(), lr=params['learning_rate'])
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', 
+                    factor=params['sched_factor'], patience=params['sched_patience'], 
+                    threshold=params['sched_threshold'], threshold_mode='abs')
+
+    logging.info(" -------- Model Architecture -------- ")
+    logging.info(str(model))
 
     training_outputs = {
         'epoch': [],
         'train_loss': [],
+    }
+
+    validation_outputs = {
+        'epoch': [],
         'val_loss': [],
         'val_accuracy': [],
         'val_precision': [],
@@ -296,7 +295,8 @@ def main(outdir):
     best_epoch = -1
 
     ### training loop 
-    nepochs = 200
+    nepochs = params['nepochs']
+    logging.info(f"Starting training loop, {nepochs} epochs total...")
     for epoch in range(nepochs):
         ### model training
         epoch_loss = 0.0
@@ -319,14 +319,19 @@ def main(outdir):
 
         train_loss_epoch = epoch_loss / len(train_dataloader)
         training_outputs['train_loss'].append(train_loss_epoch)
-
+        training_outputs['epoch'].append(epoch+1)
 
         ### model validation
-        model.eval() # sets the model in evaulation mode
         all_val_outputs = []
         all_val_targets = []
         total_val_loss = 0.0
+
+        # optimizer.param_groups[0]['lr']
         
+        # if ((epoch+1) <= 10) or ((epoch+1) % config['monitoring']['validation_frequency']) == 0:
+        # if ((epoch+1) % config['monitoring']['validation_frequency']) == 0:
+        model.eval() # sets the model in evaulation mode
+
         with torch.no_grad(): # disable gradient calculations during validation
             
             for batch_val_samples, batch_val_weights, batch_val_targets in validation_dataloader:
@@ -347,7 +352,7 @@ def main(outdir):
             val_targets_all = torch.cat(all_val_targets) 
 
             val_loss = total_val_loss / len(validation_dataloader)
-            training_outputs['val_loss'].append(val_loss)
+            validation_outputs['val_loss'].append(val_loss)
 
             val_predictions = (val_outputs_all > 0.5).float() # creates boolean tensor from outputs (0 to 1)
             
@@ -364,71 +369,105 @@ def main(outdir):
            
             tn, fp, fn, tp = confusion_matrix(val_true_labels_np, val_predictions_np, labels=[0, 1]).ravel()
 
-            training_outputs['val_accuracy'].append(acc)
-            training_outputs['val_precision'].append(prec)
-            training_outputs['val_recall'].append(rec)
-            training_outputs['val_f1_score'].append(f1)
-            training_outputs['val_roc_auc'].append(roc_auc)
+            validation_outputs['val_accuracy'].append(acc)
+            validation_outputs['val_precision'].append(prec)
+            validation_outputs['val_recall'].append(rec)
+            validation_outputs['val_f1_score'].append(f1)
+            validation_outputs['val_roc_auc'].append(roc_auc)
 
-            training_outputs['val_true_pos'].append(tp)
-            training_outputs['val_true_neg'].append(tn)
-            training_outputs['val_false_pos'].append(fp)
-            training_outputs['val_false_neg'].append(fn)
+            validation_outputs['val_true_pos'].append(tp)
+            validation_outputs['val_true_neg'].append(tn)
+            validation_outputs['val_false_pos'].append(fp)
+            validation_outputs['val_false_neg'].append(fn)
 
-            training_outputs['epoch'].append(epoch+1)
+            validation_outputs['epoch'].append(epoch+1)
 
-        print(f"Epoch: {epoch+1}/{nepochs}, "
-                f"Train Loss: {train_loss_epoch:.4f}, "
-                f"Validation Loss: {val_loss:.4f}, "
-                f"Validation Accuracy: {acc:.4f}"
-            )
+        scheduler.step(val_loss)
 
-        # Model Checkpoint
-        # # Save the model if validation accuracy improves
-        # if acc > best_val_accuracy:
-        #     best_val_accuracy = acc
-        #     best_epoch = epoch + 1
-        #     checkpoint_path = os.path.join(outdir, f"best_model_epoch_{best_epoch}.pth")
-        #     torch.save(model.state_dict(), checkpoint_path)
-        #     print(f"  --> New best model saved at epoch {best_epoch} with Val Acc: {best_val_accuracy:.4f}")
+        current_lr = optimizer.param_groups[0]['lr']
+        logging.info(f"Epoch: {epoch+1}/{nepochs}, "  
+                     f"Train Loss: {train_loss_epoch:.4f}, "  
+                     f"Validation Loss: {val_loss:.4f}, "  
+                     f"Validation Accuracy: {acc:.4f}, "
+                     f"Current LR: {current_lr:.8f}")
+
+        # else: 
+            # logging.info(f"Epoch: {epoch+1}/{nepochs},  Train Loss: {train_loss_epoch:.4f},  Skipping validation for this epoch.")
 
         # Save Model Checkpoint every 10 epochs
-        if (epoch + 1) % 10 == 0:
-            checkpoint_path = os.path.join(output_dir, f"model_epoch_{epoch+1}.pth")
+        if ((epoch+1) < 6) or ((epoch+1) % config['monitoring']['checkpoint_frequency'] == 0):
+            checkpoint_path = os.path.join(output_dir, f"model_epoch_{epoch+1}.pt")
             torch.save(model.state_dict(), checkpoint_path)
-            print(f"  --> Model checkpoint saved at epoch {epoch+1}")
+            # print(f"  --> Model checkpoint saved at epoch {epoch+1}")
+            logging.info(f"    training_outputs contents: \n        {training_outputs}")
+            logging.info(f"    validation_outputs contents: \n        {validation_outputs}")
+            logging.info(f"    --> Model checkpoint saved at epoch {epoch+1}")
 
     ### Save Training History to a File ###
     training_outputs_df = pd.DataFrame(training_outputs)
     training_outputs_path = os.path.join(output_dir, "training_outputs.csv")
     training_outputs_df.to_csv(training_outputs_path, index=False)
-    print(f"Training history saved to {training_outputs_path}")
+    # print(f"Training history saved to {training_outputs_path}")
+    # training_outputs_path = os.path.join(output_dir, "training_outputs.json")
+    # with open(training_outputs_path, "w") as outfile:
+    #     json.dump(training_outputs, outfile, indent=4)
+    logging.info(f"Training history saved to {training_outputs_path}")
+
+    validation_outputs_df = pd.DataFrame(validation_outputs)
+    validation_outputs_path = os.path.join(output_dir, "validation_outputs.csv")
+    validation_outputs_df.to_csv(validation_outputs_path, index=False)
+    # print(f"Training history saved to {training_outputs_path}")
+
+    # validation_outputs_path = os.path.join(output_dir, "validation_outputs.json")
+    # with open(validation_outputs_path, "w") as outfile:
+    #     json.dump(validation_outputs, outfile, indent=4) # issues with validation_outputs containting int64 which json can't handle
+    logging.info(f"Validation history saved to {validation_outputs_path}")
 
     # Save the final model
-    final_model_path = os.path.join(output_dir, "final_model.pth")
+    final_model_path = os.path.join(output_dir, "final_model.pt")
     torch.save(model.state_dict(), final_model_path)
-    print(f"  --> Final model saved to {final_model_ipath}")
+    # print(f"  --> Final model saved to {final_model_ipath}")
+    logging.info(f"    --> Final model saved to {final_model_path}")
+
+    # make plots
     make_basic_plots(training_outputs, plotting_dir)
+    make_basic_plots(validation_outputs, plotting_dir)
 
     #get predictions from last model epoch and make plots
+    logging.info(f"Getting predictions on smeft and powheg validation datasets")
     smeft_predictions = get_predictions(model, torch.from_numpy(norm_val_smeft.to_numpy()))
     powheg_predictions = get_predictions(model, torch.from_numpy(norm_val_powheg.to_numpy()))
+    logging.info(f"Making DNN ouptuts plot...")
     make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, plotting_dir)
 
-    print("\nGetting predictions on validation set...")
+    logging.info("Getting predictions on validation set...")
     validation_predictions = get_predictions(model, z_val)
-    print("Prediction collection complete.")
-    make_roc_plot(y_val, validation_predictions, plotting_dir)
+    logging.info("Making ROC curve plot...")
+    make_roc_plot(y_val.cpu().numpy(), validation_predictions, plotting_dir)
 
 
 if __name__=="__main__":
 
     parser = argparse.ArgumentParser(description = 'Customize inputs')
-    parser.add_argument('--outdir', required="True", help='output directory absolute path')
+    parser.add_argument('--config', required=True, help='configuration yml containing hyperparameters')
+    parser.add_argument('--outdir', required=True, help='output directory absolute path')
+    parser.add_argument('--cores', required=False, type=int, default=1, help='number of cores to run on')
 
     args = parser.parse_args()
     out = args.outdir
+    ncores = args.cores
+    config = args.config
 
-    main(outdir=out)
+    print(f"reading in config file")
+    with open(args.config, 'r') as f: 
+        config_dict = yaml.safe_load(f)
+
+    print(f"making output directory")
+    # make output directory if it doesn't already exist (for running locally)
+    if not os.path.exists(out):
+        os.makedirs(out, exist_ok=False)
+
+    print(f"starting main function")
+    main(outdir=out, config=config_dict, cores = ncores)
 
 

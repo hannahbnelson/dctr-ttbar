@@ -1,5 +1,7 @@
 import yaml
 import os 
+import gzip
+import cloudpickle
 
 import awkward as ak
 import numpy as np
@@ -138,16 +140,16 @@ axes = {
         "regular": (20, 0, 20),
         "label": "lminus mass", },  
     "top1mass": {
-        "regular": (16, 130, 210),
+        "regular": (34, 80, 250),
         "label": "top1 mass", },
     "top2mass": {
-        "regular": (16, 130, 210),
+        "regular": (34, 80, 250),
         "label": "top2 mass", },
     "topmass": {
-        "regular": (16, 130, 210),
+        "regular": (34, 80, 250),
         "label": "top mass", },
     "antitopmass": {
-        "regular": (16, 130, 210),
+        "regular": (34, 80, 250),
         "label": "antitop mass", }, 
     "j0pt": {
         "regular": (100, 0, 500),
@@ -164,6 +166,10 @@ axes = {
     "njets": {
         "regular": (10, 0, 10),
         "label": "njets",
+    },
+    "mtt": {
+        "regular": (150, 0, 1500),
+        "label": "mtt"
     },
 }
 
@@ -229,7 +235,7 @@ def main(file):
     ### load in trained network 
     print(f"loading in trained network")
 
-    config_path = "/users/hnelson2/dctr/condor_submissions/20250721_1722/config.yaml"
+    config_path = "/users/hnelson2/dctr/condor_submissions/20250730_130752/config.yaml"
     with open(config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
 
@@ -237,7 +243,7 @@ def main(file):
     input_dim = norm_NN_inputs.shape[1]
     model = DNN_tools.NeuralNetwork(input_dim, model_architecture)
 
-    model_path = "/users/hnelson2/dctr/condor_submissions/20250721_1722/training_outputs/final_model.pt"
+    model_path = "/users/hnelson2/dctr/condor_submissions/20250730_130752/training_outputs/final_model.pt"
     model.load_state_dict(torch.load(model_path))
 
     ### Evaluate the trained model with my random powheg sample
@@ -250,13 +256,23 @@ def main(file):
     selections = PackedSelection()
 
     at_least_one_jet = ak.fill_none(njets>0, False)
-    first_bin_prediction = ak.fill_none(predictions<0.1, False)
+    # first_bin_prediction = ak.fill_none(predictions<0.1, False)
+    first_bin_prediction = ak.fill_none(predictions<0.04, False)
+    bulk_prediction = ak.fill_none(predictions>=0.04, False)
 
+    mass_more_150 = ak.fill_none(gen_top.mass > 150, False)
+    mass_less_195 = ak.fill_none(gen_top.mass < 195, False)
+
+    selections.add('mass150', mass_more_150)
+    selections.add('mass195', mass_less_195)
     selections.add('1j', at_least_one_jet)
     selections.add('pred', first_bin_prediction)
+    selections.add('bulk', bulk_prediction)
 
-    output_mask = selections.all('1j', 'pred')
-    basic_selec = selections.all('1j')
+    output_mask = selections.all('1j', 'pred', 'mass150', 'mass195')
+    # output_mask = selections.all('1j', 'bulk')
+    basic_selec = selections.all('1j', 'mass150', 'mass195')
+
 
     print(f"initializing empty histograms")
 
@@ -269,7 +285,8 @@ def main(file):
         histos_cuts[name] = Hist(dense_axis, storage='weight')
 
     variables_to_fill_cuts = {
-        "outputs":      predictions, 
+        "outputs":      predictions[output_mask], 
+        "mtt":          (gen_top[:,0] + gen_top[:,1]).mass[output_mask],
         "lep1pt":       leps.pt[:,0][output_mask],
         "lep1eta":      leps.eta[:,0][output_mask],
         "lep1phi":      leps.phi[:,0][output_mask],
@@ -311,6 +328,7 @@ def main(file):
 
     variables_to_fill = {
         "outputs":      predictions[basic_selec], 
+        "mtt":          (gen_top[:,0] + gen_top[:,1]).mass[basic_selec],
         "lep1pt":       leps.pt[:,0][basic_selec],
         "lep1eta":      leps.eta[:,0][basic_selec],
         "lep1phi":      leps.phi[:,0][basic_selec],
@@ -357,13 +375,36 @@ def main(file):
     for var_name, var_val in variables_to_fill.items():
         # print(f"--> {var_name}")
         histos[var_name].fill(**{var_name: var_val})
+
+
+    histos["top1jet0"] = Hist(hist.axis.Regular(bins=34, start=80, stop=250, name='top1mass', label='top1mass'), 
+                              hist.axis.Regular(bins=100, start=0, stop=500, name='j0pt', label='j0pt'), 
+                              storage='weight') 
+    histos["top2jet0"] = Hist(hist.axis.Regular(bins=34, start=80, stop=250, name='top2mass', label='top2mass'), 
+                              hist.axis.Regular(bins=100, start=0, stop=500, name='j0pt', label='j0pt'), 
+                              storage='weight') 
+
+    histos_cuts["top1jet0"] = Hist(hist.axis.Regular(bins=34, start=80, stop=250, name='top1mass', label='top1mass'), 
+                              hist.axis.Regular(bins=100, start=0, stop=500, name='j0pt', label='j0pt'), 
+                              storage='weight') 
+    histos_cuts["top2jet0"] = Hist(hist.axis.Regular(bins=34, start=80, stop=250, name='top2mass', label='top2mass'), 
+                              hist.axis.Regular(bins=100, start=0, stop=500, name='j0pt', label='j0pt'), 
+                              storage='weight') 
+
+    histos['top1jet0'].fill(top1mass = gen_top[:,0].mass[basic_selec],
+                            j0pt = ak.flatten(j0.pt)[basic_selec])    
+    histos['top2jet0'].fill(top2mass = gen_top[:,1].mass[basic_selec],
+                            j0pt = ak.flatten(j0.pt)[basic_selec])
+    histos_cuts['top1jet0'].fill(top1mass = gen_top[:,0].mass[output_mask],
+                            j0pt = ak.flatten(j0.pt)[output_mask])    
+    histos_cuts['top2jet0'].fill(top2mass = gen_top[:,1].mass[output_mask],
+                            j0pt = ak.flatten(j0.pt)[output_mask])                             
+
     print(f"done filling histograms")
 
     return histos, histos_cuts
 
 def make_plots(hists_powheg, hists_powheg_cuts, hists_smeft, name, outdir):
-
-    hep.style.use("CMS")
     fig, ax = plt.subplots()
     hep.histplot(hists_powheg[name], density=True, yerr=True, label='powheg')
     hep.histplot(hists_powheg_cuts[name], density=True, yerr=True, label='powheg w/output<0.1')
@@ -385,16 +426,35 @@ if __name__ == "__main__":
     fpowheg = "/cms/cephfs/data/store/mc/RunIISummer20UL17NanoAODv9/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/2510000/74C36AED-4CB9-1A4D-A9E6-90278C68131C.root"
     fsmeft  = "/cms/cephfs/data/store/user/hnelson2/noEFT/nanoGen/TT01j2l_SM/NanoGen_TT01j2l_SM/nanoGen_10016.root"
 
-    outdir = "/users/hnelson2/dctr/analysis/plots_zeroBin"
+    outdir = "/users/hnelson2/dctr/analysis/0508zeroBin"
 
     powheg_hists, powheg_hists_cut = main(fpowheg)
     smeft_hists, smeft_hists_cut = main(fsmeft)
 
-    print(f"contents of j0pt histograms")
-    print(f"powheg_hists: \n {powheg_hists['j0pt'].values()}")
-    print(f"powheg_hists_cut: \n {powheg_hists_cut['j0pt'].values()}")
-    print(f"smeft_hists: \n {smeft_hists['j0pt'].values()}")
-    print(f"smeft_hists_cut: \n {smeft_hists_cut['j0pt'].values()}")
+    histdir = "/users/hnelson2/dctr/analysis/0508zeroBin/"
 
-    for name in powheg_hists: 
-        make_plots(powheg_hists, powheg_hists_cut, smeft_hists, name, outdir)
+    hists_to_save = {
+        'powheg': powheg_hists,
+        'powheg_pred': powheg_hists_cut,
+        # 'powheg_bulk': powheg_hists_cut,
+        'smeft': smeft_hists,
+        'smeft_hists_cut': smeft_hists_cut,
+    }
+
+    os.makedirs(histdir, exist_ok=True) 
+    
+    for name, var in hists_to_save.items():
+        out_pkl_file = os.path.join(histdir, f"{name}.pkl.gz")
+        with gzip.open(out_pkl_file, "wb") as fout:
+            cloudpickle.dump(var, fout)
+        print(f"\n output saved in {out_pkl_file}")
+
+
+    # print(f"contents of j0pt histograms")
+    # print(f"powheg_hists: \n {powheg_hists['j0pt'].values()}")
+    # print(f"powheg_hists_cut: \n {powheg_hists_cut['j0pt'].values()}")
+    # print(f"smeft_hists: \n {smeft_hists['j0pt'].values()}")
+    # print(f"smeft_hists_cut: \n {smeft_hists_cut['j0pt'].values()}")
+
+    # for name in powheg_hists: 
+        # make_plots(powheg_hists, powheg_hists_cut, smeft_hists, name, outdir)

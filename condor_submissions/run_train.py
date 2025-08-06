@@ -1,27 +1,7 @@
 import subprocess
 import os
+import shutil
 import datetime
-
-submit_file = f"""
-executable = {{0}}
-output = {{1}}
-error = {{2}}
-request_memory = {{3}}
-
-# Grabs the current environment to send with this job
-getenv = True
-
-+JobFlavor = {{4}}
-
-# When job finishes, if not terminated by a signal (e.g. condor_rm), then it must fail gracefully otherwise it's readded to the queue. Counts towards retries
-on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
-max_retries = 1
-
-# Use this just in case the last machine had an issue with your code/environment so it doesn't grab the same machine.
-requirements = Machine =!= LastRemoteHost
-
-queue 1
-"""
 
 sh_file = f"""
 #!/bin/sh
@@ -32,12 +12,44 @@ which python
 python {{0}} {{1}}
 """
 
-now = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+
+submit_file = f"""
+executable = {{0}}
+log = {{1}}
+output = {{2}}
+error = {{3}}
+request_memory = {{4}}
+request_cpus = {{5}}
+
+# Grabs the current environment to send with this job
+getenv = True
+
++JobFlavor = {{6}}
+
+# When job finishes, if not terminated by a signal (e.g. condor_rm), then it must fail gracefully otherwise it's readded to the queue. Counts towards retries
+on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
+max_retries = 1
+
+# Use this just in case the last machine had an issue with your code/environment so it doesn't grab the same machine.
+requirements = Machine =!= LastRemoteHost
+
+notify_user = hnelson2@nd.edu
+notification = always
+
+queue 1
+"""
+
+
+now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 if __name__ == "__main__":
 
     # Store as int - formatting comes in writing the sub file (in GB)
-    memory_reqested = 16
+    memory_reqested = 32
+    cores_requested = 8
+
+    path_to_script = "/users/hnelson2/dctr/analysis/train.py"
+    path_to_config = "/users/hnelson2/dctr/analysis/config.yaml"
 
     # Job flavor for Condor - see https://batchdocs.web.cern.ch/local/submit.html
     job_flavor = "longlunch"
@@ -45,34 +57,38 @@ if __name__ == "__main__":
     # Get directory of this file
     cwd = os.path.dirname(os.path.abspath(__file__))
 
-    working_dir = os.path.join(cwd, now)
+    working_dir = os.path.join(cwd, f"{now}")
     os.makedirs(working_dir, exist_ok=False)
 
     # Specify logs directory
-    logs = os.path.join(working_dir, "logs")
+    logs = os.path.join(working_dir, "condor_logs")
     os.makedirs(logs, exist_ok=False)
+
+    # Save config file and training scipt to working directory for tracking changes
+    shutil.copy(path_to_script, os.path.join(working_dir, "train.py"))
+    shutil.copy(path_to_config, os.path.join(working_dir, "config.yaml"))
 
     # Make shell script for running on Condor machines
     sh_path = os.path.join(working_dir, f"condor_run_{now}.sh")
     with open(sh_path, "w") as f:
         f.write(
             sh_file.format(
-                os.path.abspath("/users/hnelson2/dctr/analysis/train.py"),
-                f"--outdir {working_dir}",
+                os.path.abspath(path_to_script),
+                f"--config {path_to_config} --outdir {working_dir} --cores {cores_requested}"
             )
         )
 
     # Make submission script
     submit_path = os.path.join(working_dir, f"condor_submit_{now}.sub")
-    print(f"submissions script path: {submit_path}")
-    print(f"path exists? {os.path.exists(submit_path)}")
     with open(submit_path, "w") as f:
         f.write(
             submit_file.format(
                 sh_path,
-                os.path.join(logs, f"log_{now}.out"),
-                os.path.join(logs, f"log_{now}.err"),
+                os.path.join(logs, f"{now}.log"),
+                os.path.join(logs, f"{now}.out"),
+                os.path.join(logs, f"{now}.err"),
                 f"{memory_reqested}GB",
+                f"{cores_requested}",
                 job_flavor,
             )
         )
@@ -81,8 +97,12 @@ if __name__ == "__main__":
     assert os.path.exists(sh_path)
     assert os.path.exists(submit_path)
 
+    print(f"working directory: {working_dir} \n")
     print(f"created sh file: {sh_path}")
     print(f"created submit file: {submit_path}")
+
+    print(f"saved config.yaml to {os.path.join(working_dir, 'config.yaml')}")
+    print(f"saved train.py to {os.path.join(working_dir, 'train.py')}")
 
     # Allow Condor to execute the shell script
     os.system(f"chmod 775 {sh_path}")
