@@ -42,12 +42,17 @@ def is_clean(obj_A, obj_B, drmin=0.4):
 
 class AnalysisProcessor(processor.ProcessorABC):
     
-    def __init__(self, samples, DNNyaml, DNNmodel, wc_names_lst=[], hist_lst = None, dtype=np.float32, do_errors=False):
+    def __init__(self, samples, DNNyaml=None, DNNmodel=None, wc_names_lst=[], hist_lst = None, dtype=np.float32, do_errors=False):
         self._samples = samples
         self._dtype = dtype
         self._accumulator = DataframeAccumulator(pd.DataFrame())
-        self._DNNyaml = DNNyaml
-        self._DNNmodel = DNNmodel
+
+        if (DNNyaml is not None) and (DNNmodel is not None): 
+            self._doDNN = True 
+            self._DNNyaml = DNNyaml
+            self._DNNmodel = DNNmodel
+        else:
+            self._doDNN = False
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
 
@@ -219,13 +224,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######## Get NN Predictions ########
 
-        df_inputs = DNN_tools.make_df_for_DNN(genpart)
-        input_dim = df_inputs.shape[1]
+        if self._doDNN == True: 
+            df_inputs = DNN_tools.make_df_for_DNN(genpart)
+            input_dim = df_inputs.shape[1]
 
-        model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
-        predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
+            model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
+            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
 
-        reweights = DNN_tools.compute_reweights(predictions)
+            reweights = DNN_tools.compute_reweights(predictions)
 
 
         ######## Variables for Plotting ########
@@ -234,7 +240,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         l0 = leps[:,0]
         l1 = leps[:,1]
         
-
         ######## Normalizations ########
 
         lumi = 1000.0*get_lumi(year)
@@ -246,15 +251,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             genw = np.ones_like(events['event'])
 
-        event_weights = norm*genw*reweights
-        # event_weights = norm*genw
+        if self._doDNN == True: 
+            scaling = 1/(reweights + 1e-8)
+            event_weights = norm*genw*scaling
+            # event_weights = norm*genw*reweights
+        else: 
+            event_weights = norm*genw
 
         ######## Fill Histograms ########
 
         hout = self.accumulator
 
         variables_to_fill = {
-            "NNoutput"  : predictions,
+            # "NNoutput"  : predictions,
             "avg_top_pt": np.divide(gen_top.sum().pt, 2.0),
             "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass,
             "top1pt"    : gen_top.pt[:,0],
@@ -277,6 +286,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "njets"     : njets,
         }
 
+        if self._doDNN == True: 
+            variables_to_fill['NNoutput'] = predictions
+
         eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
 
         for var_name, var_values in variables_to_fill.items():
@@ -291,7 +303,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "eft_coeff" : eft_coeffs_cut,
             }
 
-            print(f"\n filling histogram: {var_name} \n")
+            # fill_info = {
+            #     var_name    : var_values,
+            #     "process"   : hist_axis_name,
+            #     "weight"    : event_weights,
+            #     "eft_coeff" : eft_coeffs_cut,
+            # }
+
+            # print(f"\n filling histogram: {var_name} \n")
             hout[var_name].fill(**fill_info)
 
         return hout

@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='You can customize your run')
     parser.add_argument('jsonFiles'        , nargs='?', help = 'Json file(s) containing files and metadata')
     parser.add_argument('--executor','-x'  , default='work_queue', help = 'Which executor to use')
+    parser.add_argument("--test", "-t", action="store_true", help="To perform a test, run over a few events in a couple of chunks",)
     parser.add_argument('--prefix', '-r'   , nargs='?', default='', help = 'Prefix or redirector to look for the files')
     parser.add_argument('--pretend'        , action='store_true', help = 'Read json files but, not execute the analysis')
     parser.add_argument('--nworkers','-n' , default=8  , help = 'Number of workers')
@@ -33,12 +34,13 @@ if __name__ == '__main__':
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
     parser.add_argument('--processor', '-p', default='analysis_processor.py', help='Specify processor file name')
-    parser.add_argument('--DNNyaml', help='Specify path to a NN yaml that contains the model architecture')
-    parser.add_argument('--DNNmodel', help='Specify path to a trained NN model')
+    parser.add_argument('--DNNyaml', default=None, help='Specify path to a NN yaml that contains the model architecture')
+    parser.add_argument('--DNNmodel', default=None, help='Specify path to a trained NN model')
 
     args        = parser.parse_args()
     jsonFiles   = args.jsonFiles
     executor    = args.executor
+    dotest      = args.test
     prefix      = args.prefix
     pretend     = args.pretend
     nworkers    = int(args.nworkers)
@@ -47,6 +49,7 @@ if __name__ == '__main__':
     outname     = args.outname
     treename    = args.treename
     wc_lst      = args.wc_list if args.wc_list is not None else []
+    hist_lst    = args.hist_list
     proc_file   = args.processor
     proc_name   = args.processor[:-3]   # remove ".py" from the processor name
     DNNyaml     = args.DNNyaml
@@ -72,18 +75,20 @@ if __name__ == '__main__':
             # convert single values into a range of one element
             port.append(port[0])
 
-    if args.hist_list == ["weights"]:
-        hist_lst = ["weights_SM", "weights_SM_log",
-                    "weights_pt0", "weights_pt0_log",
-                    "weights_pt1", "weights_pt1_log",
-                    "weights_pt2", "weights_pt2_log",
-                    "weights_pt3", "weights_pt3_log",
-                    "weights_pt4", "weights_pt4_log"]
-    elif args.hist_list == ["kinematics"]:
-        hist_lst = ["tops_pt", "avg_top_pt", "l0pt", "dr_leps", "ht", "jets_pt", "j0pt", "njets", "mtt", "mll"]
-    else:
-        hist_lst = args.hist_list
-
+    if dotest:
+        if executor == "futures":
+            nchunks = 2
+            chunksize = 10000
+            nworkers = 1
+            print(
+                "Running a fast test with %i workers, %i chunks of %i events"
+                % (nworkers, nchunks, chunksize)
+            )
+        else:
+            raise Exception(
+                f'The "test" option is not set up to work with the {executor} executor. Exiting.'
+            )
+ 
     # Load samples from json and setup the inputs to the processor
     samplesdict = {}
     allInputFiles = []
@@ -185,6 +190,16 @@ if __name__ == '__main__':
 
     # Run the processor and get the output
     processor_instance = analysis_processor.AnalysisProcessor(samplesdict, DNNyaml, DNNmodel, wc_lst, hist_lst)
+    # if (DNNyaml is not None) and (DNNmodel is not None): 
+        # processor_instance = analysis_processor.AnalysisProcessor(samplesdict, DNNyaml, DNNmodel, wc_lst, hist_lst)
+    # else: 
+        # processor_instance = analysis_processor.AnalysisProcessor(samplesdict, wc_lst, hist_lst)
+
+    extra_files = [proc_file]
+    if DNNyaml is not None: 
+        extra_files.append(DNNyaml)
+    if DNNmodel is not None: 
+        extra_files.append(DNNmodel)
 
     if executor == "work_queue":
         executor_args = {
@@ -200,10 +215,11 @@ if __name__ == '__main__':
 
             #'environment_file': 'topEFT-env.tar.gz',
             'environment_file': remote_environment.get_environment(
+                extra_conda=["pytorch=2.3.1", "numpy=1.23.5", "pyyaml=6.0.2"],
                 extra_pip_local = {"dctr": ["dctr", "setup.py"]},
             ),
             # 'extra_input_files': ["nanogen_processor.py"],
-            'extra_input_files' : [proc_file, DNNyaml, DNNmodel],
+            'extra_input_files' : extra_files,
 
             'retries': 5,
 

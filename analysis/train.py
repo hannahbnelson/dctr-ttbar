@@ -142,7 +142,7 @@ def make_roc_plot(true_labels, probabilities, outdir):
     ax.set_ylim([0.0, 1.05])
     ax.set_xlabel('False Positive Rate')
     ax.set_ylabel('True Positive Rate')
-    ax.set_title(f'ROC Curve')
+    ax.set_title(f'ROC Curve, AUC = {roc_auc:.2f}')
     ax.grid(True)
 
     outname = os.path.join(outdir, "ROC")
@@ -219,8 +219,8 @@ def main(outdir, config, cores=1):
     weights_train_smeft = np.ones_like(train_smeft['mtt'])
     weights_train_powheg = np.ones_like(train_powheg['mtt'])
 
-    truth_train_smeft = np.ones_like(train_smeft['mtt'])
-    truth_train_powheg = np.zeros_like(train_powheg['mtt'])
+    truth_train_smeft = np.zeros_like(train_smeft['mtt'])
+    truth_train_powheg = np.ones_like(train_powheg['mtt'])
 
     # create validation datasets
     validation_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_smeft_validation.pkl.gz")).drop(['weights'], axis=1)
@@ -228,8 +228,8 @@ def main(outdir, config, cores=1):
     validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/3007_powheg_validation.pkl.gz")).drop(['weights'], axis=1)
     weights_validation_smeft = np.ones_like(validation_smeft['mtt'])
     weights_validation_powheg = np.ones_like(validation_powheg['mtt'])
-    truth_validation_smeft = np.ones_like(validation_smeft['mtt'])
-    truth_validation_powheg = np.zeros_like(validation_powheg['mtt'])
+    truth_validation_smeft = np.zeros_like(validation_smeft['mtt'])
+    truth_validation_powheg = np.ones_like(validation_powheg['mtt'])
 
     ### standardize inputs
     # find means and stdvs for each variable using all of the data
