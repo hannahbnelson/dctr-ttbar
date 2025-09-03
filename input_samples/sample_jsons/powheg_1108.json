@@ -1,0 +1,17 @@
+{
+  "xsec":72.1455,
+  "xsec_total": 687.1,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "TTTo2L2Nu_powheg",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/project01/ndcms/hnelson2/mc_samples/central_UL/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM/10C33CC0-846D-134B-99EA-F7E4200E9A48.root",
+    "/project01/ndcms/hnelson2/mc_samples/central_UL/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM/1DF4A2CB-D908-2648-9F63-C3DC37707E93.root" 
+  ],
+  "nSumOfWeightsBeforeSelec": 80771449.79553223,
+  "nSumOfWeightsAfterSelec" : 16034119.66387939,
+  "nSumOfWeights": 80771449.79553223,
+  "isData": false
+}

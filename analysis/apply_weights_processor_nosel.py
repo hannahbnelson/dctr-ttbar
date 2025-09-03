@@ -200,39 +200,40 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_top = ak.pad_none(genpart[is_final_mask & (abs(genpart.pdgId) == 6)],2)
         gen_top = gen_top[ak.argsort(gen_top.pt, axis=1, ascending=False)]
         
-        ele  = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
-        mu   = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
-        nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
-        nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
-        nu = ak.concatenate([nu_ele,nu_mu],axis=1)
-        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        # ele  = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
+        # mu   = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
+        # nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
+        # nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
+        # nu = ak.concatenate([nu_ele,nu_mu],axis=1)
+        # e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+        # m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
 
-        leps = ak.concatenate([ele[e_selec], mu[m_selec]],axis=1)
-        leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
-        nleps = ak.num(leps)
+        # leps = ak.concatenate([ele[e_selec], mu[m_selec]],axis=1)
+        # leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
+        # nleps = ak.num(leps)
 
         jets = events.GenJet
-        jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
-        # jets_clean = jets[is_clean(jets, leps, drmin=0.4)]
-        jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
+        njets = ak.num(jets)
+        # jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
+        # # jets_clean = jets[is_clean(jets, leps, drmin=0.4)]
+        # jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
          
         # jets = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
-        j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
-        njets = ak.num(jets_clean)
+        # j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
+        # njets = ak.num(jets_clean)
 
 
         ######## Event selections ########
 
-        selections = PackedSelection()
+        # selections = PackedSelection()
 
-        at_least_two_leps = ak.fill_none(nleps>=2, False)
-        at_least_two_jets = ak.fill_none(njets>=2, False)
+        # at_least_two_leps = ak.fill_none(nleps>=2, False)
+        # at_least_two_jets = ak.fill_none(njets>=2, False)
 
-        selections.add('2l', at_least_two_leps)
-        selections.add('2j', at_least_two_jets)
+        # selections.add('2l', at_least_two_leps)
+        # selections.add('2j', at_least_two_jets)
 
-        event_selection_mask = selections.all('2l', '2j')
+        # event_selection_mask = selections.all('2l', '2j')
 
 
         ######## Get NN Predictions ########
@@ -249,11 +250,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######## Variables for Plotting ########
 
-        leps = ak.pad_none(leps, 2)
-        l0 = leps[:,0]
-        l1 = leps[:,1]
+        # leps = ak.pad_none(leps, 2)
+        # l0 = leps[:,0]
+        # l1 = leps[:,1]
 
-        ptll = (l0+l1).pt
+        # ptll = (l0+l1).pt
         
         ######## Normalizations ########
 
@@ -280,7 +281,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         variables_to_fill = {
             # "NNoutput"  : predictions,
             "sow"       : np.ones_like(events['event']),
-            "ptll"      : ptll,
+            # "ptll"      : ptll,
             "pttt"      : (gen_top[:,0] + gen_top[:,1]).pt,
             "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass,
             "top1pt"    : gen_top.pt[:,0],
@@ -291,15 +292,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2eta"   : gen_top.eta[:,1],
             "top2phi"   : gen_top.phi[:,1],
             "top2mass"  : gen_top.mass[:,1],
-            "lep1pt"    : l0.pt, 
-            "lep1eta"   : l0.eta,
-            "lep1phi"   : l0.phi,
-            "lep2pt"    : l1.pt, 
-            "lep2eta"   : l1.eta,
-            "lep2phi"   : l1.phi,
-            "j0pt"      : ak.flatten(j0.pt),
-            "j0eta"     : ak.flatten(j0.eta),
-            "j0phi"     : ak.flatten(j0.phi),
+            # "lep1pt"    : l0.pt, 
+            # "lep1eta"   : l0.eta,
+            # "lep1phi"   : l0.phi,
+            # "lep2pt"    : l1.pt, 
+            # "lep2eta"   : l1.eta,
+            # "lep2phi"   : l1.phi,
+            # "j0pt"      : ak.flatten(j0.pt),
+            # "j0eta"     : ak.flatten(j0.eta),
+            # "j0phi"     : ak.flatten(j0.phi),
             "njets"     : njets,
         }
 
@@ -307,7 +308,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             variables_to_fill['NNoutput'] = predictions
             variables_to_fill['reweights'] = reweights
 
-        eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
+        # eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
 
         for var_name, var_values in variables_to_fill.items():
             if var_name not in self._hist_lst:
@@ -315,10 +316,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 continue
 
             fill_info = {
-                var_name    : var_values[event_selection_mask],
+                var_name    : var_values,
                 "process"   : hist_axis_name,
-                "weight"    : event_weights[event_selection_mask],
-                "eft_coeff" : eft_coeffs_cut,
+                "weight"    : event_weights,
+                "eft_coeff" : eft_coeffs,
             }
 
             # fill_info = {

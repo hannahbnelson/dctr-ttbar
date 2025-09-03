@@ -12,8 +12,6 @@ import gzip
 import logging
 import datetime
 
-from pathlib import Path
-import shutil
 import os
 import matplotlib.pyplot as plt
 # import topcoffea.modules.utils as utils
@@ -41,8 +39,8 @@ class NeuralNetwork(nn.Module):
         self.main_module= nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.LeakyReLU(),
-            # nn.Linear(128,128),
-            # nn.LeakyReLU(),
+            nn.Linear(128,128),
+            nn.LeakyReLU(),
             nn.Linear(128, 64),
             nn.LeakyReLU(),
             nn.Linear(64, 1),
@@ -96,58 +94,43 @@ def test(dataloader, model, loss_fn):
 
 def main():
 
-    rando = 1234
-    torch.manual_seed(0)
-
-    now = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    outdir = f"train_{now}"
+    outdir = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     os.makedirs(outdir, exist_ok=False)
 
-    # cwd = os.getcwd()
-    # copy_path = os.path.join(cwd, "training.py")
-    current_path = Path(__file__)
-    shutil.copy(current_path, os.path.join(outdir, "training.py"))
-    print(f"training python file {current_path} copied to {os.path.join(outdir, 'training.py')}")
+    rando = 1234
 
+    np.random.seed(rando)
+    N_0, N_1 = 50000, 50000
+    lambda_0, lambda_1 = 1.0, 0.5
 
-    fSMEFT = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_SMEFT.pkl.gz"
-    # fpowheg = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_powheg.pkl.gz" 
-    fpowheg = "/afs/crc.nd.edu/user/h/hnelson2/dctr/analysis/dctr_powheg_skimmed.pkl.gz"
+    inputs_smeft = pd.DataFrame(np.random.exponential(scale=1/lambda_0, size=N_0).reshape(-1,1).astype(np.float32))
+    inputs_powheg = pd.DataFrame(np.random.exponential(scale=1/lambda_1, size=N_1).reshape(-1,1).astype(np.float32))
 
-    inputs_smeft = pickle.load(gzip.open(fSMEFT)).get()
-    smeft_nevents = inputs_smeft.shape[0]
+    smeft_train = inputs_smeft.sample(frac=0.7, random_state=rando)
+    smeft_test = inputs_smeft.drop(smeft_train.index)
+    powheg_train = inputs_powheg.sample(frac=0.7, random_state=rando)
+    powheg_test = inputs_powheg.drop(powheg_train.index)
+    truth_smeft = np.ones_like(smeft_train[0])
+    truth_powheg = np.zeros_like(powheg_train[0])
 
-    inputs_powheg = pickle.load(gzip.open(fpowheg))
-    # load the fpowheg file, use .query to only select events with positive weights, shuffle remaining events, then select the same number of events as the smeft sample
-    # inputs_powheg = (((pickle.load(gzip.open(fpowheg)).get()).query('weights>0')).sample(frac=1, random_state=rando).reset_index(drop=True)).iloc[:smeft_nevents]
+    weights_smeft = np.ones_like(smeft_train[0])
+    weights_powheg = np.ones_like(powheg_train[0])
 
-    assert inputs_smeft.shape == inputs_powheg.shape, f"SMEFT and Powheg inputs are not the same shape.\n SMEFT shape: {inputs_smeft.shape} \n Powheg shape:{inputs_powheg.shape}"
-
-    train_smeft = inputs_smeft.sample(frac=0.7, random_state=rando)
-    test_smeft = inputs_smeft.drop(train_smeft.index)
-    truth_smeft = np.ones_like(train_smeft['weights'])
-    weights_smeft = np.ones_like(train_smeft['weights'])
-
-    train_powheg = inputs_powheg.sample(frac=0.7, random_state=rando)
-    test_powheg = inputs_powheg.drop(train_powheg.index)
-    truth_powheg = np.zeros_like(train_powheg['weights'])
-    weights_powheg = np.ones_like(train_powheg['weights'])
-
-    z = torch.from_numpy(np.concatenate([train_smeft, train_powheg], axis=0).astype(np.float32))
+    z = torch.from_numpy(np.concatenate([smeft_train, powheg_train], axis=0).astype(np.float32))
     w = torch.from_numpy(np.concatenate([weights_smeft, weights_powheg], axis=0).astype(np.float32))
     y = torch.from_numpy(np.concatenate([truth_smeft, truth_powheg], axis=0).astype(np.float32))
 
     train_dataset = WeightedDataset(z, w, y)
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
 
-    test_z = torch.from_numpy(np.concatenate([test_smeft, test_powheg], axis=0).astype(np.float32))
-    test_y = torch.from_numpy(np.concatenate([np.ones_like(test_smeft['weights']), np.zeros_like(test_powheg['weights'])], axis=0).astype(np.float32))
+    test_z = torch.from_numpy(np.concatenate([smeft_test, powheg_test], axis=0).astype(np.float32))
+    test_y = torch.from_numpy(np.concatenate([np.ones_like(smeft_test[0]), np.zeros_like(powheg_test[0])], axis=0).astype(np.float32))
 
     input_dim = z.shape[1]
     model = NeuralNetwork(input_dim)
 
     loss_fn = nn.BCELoss(reduction='mean')
-    optimizer = optim.Adam(model.parameters(), lr=1e-8)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     training_outputs = {
         'epoch': [],
@@ -167,7 +150,7 @@ def main():
     best_val_accuracy=0.0
     best_epoch = -1
 
-    nepochs = 15
+    nepochs = 200
     for epoch in range(nepochs):
         epoch_loss = 0.0
         model.train()   # sets the model in training mode. Crucial for layers that behave differently during training vs evaluation (e.g. dropout, mean, variance)
@@ -232,7 +215,7 @@ def main():
             best_epoch = epoch + 1
             checkpoint_path = os.path.join(outdir, f"best_model_epoch_{best_epoch}.pth")
             torch.save(model.state_dict(), checkpoint_path)
-            print(f"  --> New best model saved at epoch {best_epoch} with Val Acc: {best_val_accuracy:.4f}")
+            print(f"  --> New best model saved at epoch {best_epoch} with Val Acc: {best_val_accuracy}:.4f")
 
         if (epoch + 1) % 10 == 0:
             checkpoint_path = os.path.join(outdir, f"model_epoch_{epoch+1}.pth")
@@ -251,7 +234,6 @@ def main():
     final_model_path = os.path.join(outdir, "final_model.pth")
     torch.save(model.state_dict(), final_model_path)
     print(f"  --> Final model saved to {final_model_path}")
-
 
 if __name__=="__main__":
     main()

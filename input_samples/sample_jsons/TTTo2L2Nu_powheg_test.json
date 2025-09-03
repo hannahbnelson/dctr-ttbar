@@ -7,11 +7,8 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/project01/ndcms/hnelson2/mc_samples/central_UL/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM/10C33CC0-846D-134B-99EA-F7E4200E9A48.root",
-    "/project01/ndcms/hnelson2/mc_samples/central_UL/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM/1DF4A2CB-D908-2648-9F63-C3DC37707E93.root" 
+    "/cms/cephfs/data/store/mc/RunIISummer20UL17NanoAODv9/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/2510000/74C36AED-4CB9-1A4D-A9E6-90278C68131C.root" 
   ],
-  "nSumOfWeightsBeforeSelec": 80771449.79553223,
-  "nSumOfWeightsAfterSelec" : 16034119.66387939,
-  "nSumOfWeights": 80771449.79553223,
+  "nSumOfWeights": 1.0,
   "isData": false
 }

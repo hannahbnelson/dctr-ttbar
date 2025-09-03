@@ -85,12 +85,10 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
         return self.main_module(x)
 
-def compute_reweights(predictions): 
+def compute_reweights(pred): 
 
-    f_z = predictions
-    weights = np.divide(f_z, (1-f_z + 1e-8))
-
-    return weights
+    return pred / (1 - pred + 1e-8)
+    
 
 def load_saved_model(config_path, model_path, indim): 
 

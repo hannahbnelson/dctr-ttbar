@@ -9,3 +9,5 @@ analysis/__pycache__/
 analysis/*.pkl.gz
 *.pkl.gz
 analysis/conda_spec.yml
+*.ipynb_checkpoints
+*condor_submissions

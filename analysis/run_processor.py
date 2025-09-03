@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--prefix', '-r'   , nargs='?', default='', help = 'Prefix or redirector to look for the files')
     parser.add_argument('--pretend'        , action='store_true', help = 'Read json files but, not execute the analysis')
     parser.add_argument('--nworkers','-n' , default=8  , help = 'Number of workers')
-    parser.add_argument('--chunksize','-s', default=100000  , help = 'Number of events per chunk')
+    parser.add_argument('--chunksize','-s', default=10000  , help = 'Number of events per chunk')
     parser.add_argument('--nchunks','-c'  , default=None  , help = 'You can choose to run only a number of chunks')
     parser.add_argument('--outname','-o'  , default='histos', help = 'Name of the output file with histograms')
     parser.add_argument('--treename'      , default='Events', help = 'Name of the tree inside the files')
