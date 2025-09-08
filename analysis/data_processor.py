@@ -49,6 +49,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
         tau = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
 
+        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
+
         nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
         nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
         nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)]
@@ -61,11 +65,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######## Event selections ########
 
         selections = PackedSelection()
-        mass_more_150 = ak.fill_none(gen_top.mass > 150, False)
-        mass_less_195 = ak.fill_none(gen_top.mass < 195, False)
-        selections.add('mass150', mass_more_150)
-        selections.add('mass195', mass_less_195)
-        event_selection_mask = selections.all('mass150', 'mass195')
+        top1_mass_mask = (gen_top.mass[:, 0] > 150) & (gen_top.mass[:, 0] < 195)
+        top2_mass_mask = (gen_top.mass[:, 1] > 150) & (gen_top.mass[:, 1] <195)
+        selections.add('top_mass_cut', top1_mass_mask & top2_mass_mask)
+        event_selection_mask = selections.all('top_mass_cut')
 
         weights = events["genWeight"]
 
