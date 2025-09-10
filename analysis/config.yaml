@@ -1,3 +1,9 @@
+inputs:
+  train_smeft: '/users/hnelson2/dctr/analysis/pytorch_inputs_smeft_training.pkl.gz'
+  train_powheg: '/users/hnelson2/dctr/analysis/pytorch_inputs_powheg_training.pkl.gz' 
+  validation_smeft: '/users/hnelson2/dctr/analysis/pytorch_inputs_smeft_validation.pkl.gz' 
+  validation_powheg: '/users/hnelson2/dctr/analysis/pytorch_inputs_powheg_validation.pkl.gz'
+
 model:
   - type: Linear
     in_dim: 0

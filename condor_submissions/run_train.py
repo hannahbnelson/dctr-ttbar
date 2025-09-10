@@ -2,6 +2,7 @@ import subprocess
 import os
 import shutil
 import datetime
+import argparse
 
 sh_file = f"""
 #!/bin/sh
@@ -44,12 +45,22 @@ now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description='You can customize your run')
+    parser.add_argument('--train', default='/users/hnelson2/dctr/analysis/train.py', help='python trainingi script')
+    parser.add_argument('--config', default='/users/hnelson2/dctr/analysis/config.yaml', help='yaml config for train.py')
+    parser.add_argument('--outdir', default=f"{now}", help='name of output directory in dctr/condor_submissions')
+
+    args = parser.parse_args()
+    train_path = args.train
+    config_path = args.config
+    outdir = args.outdir
+
     # Store as int - formatting comes in writing the sub file (in GB)
     memory_reqested = 32
     cores_requested = 8
 
-    path_to_script = "/users/hnelson2/dctr/analysis/train.py"
-    path_to_config = "/users/hnelson2/dctr/analysis/config.yaml"
+    path_to_script = os.path.abspath(train_path)
+    path_to_config = os.path.abspath(config_path)
 
     # Job flavor for Condor - see https://batchdocs.web.cern.ch/local/submit.html
     job_flavor = "longlunch"
@@ -57,7 +68,7 @@ if __name__ == "__main__":
     # Get directory of this file
     cwd = os.path.dirname(os.path.abspath(__file__))
 
-    working_dir = os.path.join(cwd, f"{now}")
+    working_dir = os.path.join(cwd, outdir)
     os.makedirs(working_dir, exist_ok=False)
 
     # Specify logs directory
@@ -69,7 +80,7 @@ if __name__ == "__main__":
     shutil.copy(path_to_config, os.path.join(working_dir, "config.yaml"))
 
     # Make shell script for running on Condor machines
-    sh_path = os.path.join(working_dir, f"condor_run_{now}.sh")
+    sh_path = os.path.join(working_dir, f"condor_run.sh")
     with open(sh_path, "w") as f:
         f.write(
             sh_file.format(
@@ -79,14 +90,14 @@ if __name__ == "__main__":
         )
 
     # Make submission script
-    submit_path = os.path.join(working_dir, f"condor_submit_{now}.sub")
+    submit_path = os.path.join(working_dir, f"condor_submit.sub")
     with open(submit_path, "w") as f:
         f.write(
             submit_file.format(
                 sh_path,
-                os.path.join(logs, f"{now}.log"),
-                os.path.join(logs, f"{now}.out"),
-                os.path.join(logs, f"{now}.err"),
+                os.path.join(logs, f"condor.log"),
+                os.path.join(logs, f"condor.out"),
+                os.path.join(logs, f"condor.err"),
                 f"{memory_reqested}GB",
                 f"{cores_requested}",
                 job_flavor,

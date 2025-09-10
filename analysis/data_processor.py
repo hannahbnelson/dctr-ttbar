@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         selections = PackedSelection()
         top1_mass_mask = (gen_top.mass[:, 0] > 150) & (gen_top.mass[:, 0] < 195)
-        top2_mass_mask = (gen_top.mass[:, 1] > 150) & (gen_top.mass[:, 1] <195)
+        top2_mass_mask = (gen_top.mass[:, 1] > 150) & (gen_top.mass[:, 1] < 195)
         selections.add('top_mass_cut', top1_mass_mask & top2_mass_mask)
         event_selection_mask = selections.all('top_mass_cut')
 

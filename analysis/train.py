@@ -210,11 +210,11 @@ def main(outdir, config, cores=1):
     logging.info(f"using device: {device}")
 
     params = config['params']
+    inputs = config['inputs']
 
     # create training datasets
-    train_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_smeft_training.pkl.gz")).drop(['weights'], axis=1)
-    # train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_powheg_training.pkl.gz")).drop(['weights'], axis=1)
-    train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/3007_powheg_training.pkl.gz")).drop(['weights'], axis=1)
+    train_smeft = pickle.load(gzip.open(inputs['train_smeft'])).drop(['weights'], axis=1)
+    train_powheg = pickle.load(gzip.open(inputs['train_powheg'])).drop(['weights'], axis=1)
 
     weights_train_smeft = np.ones_like(train_smeft['mtt'])
     weights_train_powheg = np.ones_like(train_powheg['mtt'])
@@ -223,9 +223,8 @@ def main(outdir, config, cores=1):
     truth_train_powheg = np.ones_like(train_powheg['mtt'])
 
     # create validation datasets
-    validation_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_smeft_validation.pkl.gz")).drop(['weights'], axis=1)
-    # validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/1807_powheg_validation.pkl.gz")).drop(['weights'], axis=1)
-    validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/3007_powheg_validation.pkl.gz")).drop(['weights'], axis=1)
+    validation_smeft = pickle.load(gzip.open(inputs['validation_smeft'])).drop(['weights'], axis=1)
+    validation_powheg = pickle.load(gzip.open(inputs['validation_powheg'])).drop(['weights'], axis=1)
     weights_validation_smeft = np.ones_like(validation_smeft['mtt'])
     weights_validation_powheg = np.ones_like(validation_powheg['mtt'])
     truth_validation_smeft = np.zeros_like(validation_smeft['mtt'])
