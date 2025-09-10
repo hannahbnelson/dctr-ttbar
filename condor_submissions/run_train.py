@@ -46,18 +46,19 @@ now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='You can customize your run')
-    parser.add_argument('--train', default='/users/hnelson2/dctr/analysis/train.py', help='python trainingi script')
+    parser.add_argument('--train',  default='/users/hnelson2/dctr/analysis/train.py', help='python trainingi script')
     parser.add_argument('--config', default='/users/hnelson2/dctr/analysis/config.yaml', help='yaml config for train.py')
     parser.add_argument('--outdir', default=f"{now}", help='name of output directory in dctr/condor_submissions')
+    parser.add_argument('--cores',  default=8, help='specify number of cores per job')
+    parser.add_argument('--memory', default=32, help='specify memory per job')
 
     args = parser.parse_args()
     train_path = args.train
     config_path = args.config
     outdir = args.outdir
-
     # Store as int - formatting comes in writing the sub file (in GB)
-    memory_reqested = 32
-    cores_requested = 8
+    cores_requested = int(args.cores) 
+    memory_reqested = int(args.memory)
 
     path_to_script = os.path.abspath(train_path)
     path_to_config = os.path.abspath(config_path)
