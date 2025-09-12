@@ -238,11 +238,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######## Get NN Predictions ########
 
         if self._doDNN == True: 
-            df_inputs = DNN_tools.make_df_for_DNN(genpart)
+            df_inputs = DNN_tools.make_df_for_DNN(genpart, events.GenJet)
             input_dim = df_inputs.shape[1]
 
             model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
-            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
+            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()).float())
 
             reweights = DNN_tools.compute_reweights(predictions)
 
@@ -291,15 +291,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2eta"   : gen_top.eta[:,1],
             "top2phi"   : gen_top.phi[:,1],
             "top2mass"  : gen_top.mass[:,1],
-            "lep1pt"    : l0.pt, 
-            "lep1eta"   : l0.eta,
-            "lep1phi"   : l0.phi,
-            "lep2pt"    : l1.pt, 
-            "lep2eta"   : l1.eta,
-            "lep2phi"   : l1.phi,
-            "j0pt"      : ak.flatten(j0.pt),
-            "j0eta"     : ak.flatten(j0.eta),
-            "j0phi"     : ak.flatten(j0.phi),
+            # "lep1pt"    : l0.pt, 
+            # "lep1eta"   : l0.eta,
+            # "lep1phi"   : l0.phi,
+            # "lep2pt"    : l1.pt, 
+            # "lep2eta"   : l1.eta,
+            # "lep2phi"   : l1.phi,
+            # "j0pt"      : ak.flatten(j0.pt),
+            # "j0eta"     : ak.flatten(j0.eta),
+            # "j0phi"     : ak.flatten(j0.phi),
             "njets"     : njets,
         }
 
@@ -314,19 +314,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 print(f"Skipping \"{var_name}\", it is not in the list of hists to include")
                 continue
 
-            fill_info = {
-                var_name    : var_values[event_selection_mask],
-                "process"   : hist_axis_name,
-                "weight"    : event_weights[event_selection_mask],
-                "eft_coeff" : eft_coeffs_cut,
-            }
-
             # fill_info = {
-            #     var_name    : var_values,
+            #     var_name    : var_values[event_selection_mask],
             #     "process"   : hist_axis_name,
-            #     "weight"    : event_weights,
+            #     "weight"    : event_weights[event_selection_mask],
             #     "eft_coeff" : eft_coeffs_cut,
             # }
+
+            fill_info = {
+                var_name    : var_values,
+                "process"   : hist_axis_name,
+                "weight"    : event_weights,
+                "eft_coeff" : eft_coeffs_cut,
+            }
 
             # print(f"\n filling histogram: {var_name} \n")
             hout[var_name].fill(**fill_info)

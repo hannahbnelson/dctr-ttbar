@@ -9,6 +9,7 @@
   "files": [
     "/cms/cephfs/data/store/mc/RunIISummer20UL17NanoAODv9/TTTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/2510000/74C36AED-4CB9-1A4D-A9E6-90278C68131C.root" 
   ],
-  "nSumOfWeights": 1.0,
+  "nSumOfWeights": 92288314.99206543,
+  "nEvents": 1280000.0,
   "isData": false
 }

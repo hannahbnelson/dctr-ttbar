@@ -239,11 +239,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######## Get NN Predictions ########
 
         if self._doDNN == True: 
-            df_inputs = DNN_tools.make_df_for_DNN(genpart)
+            df_inputs = DNN_tools.make_df_for_DNN(genpart, events.GenJet)
             input_dim = df_inputs.shape[1]
 
             model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
-            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
+            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()).float())
 
             reweights = DNN_tools.compute_reweights(predictions)
 

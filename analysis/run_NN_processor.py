@@ -12,7 +12,8 @@ from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 from topcoffea.modules import utils
-import topcoffea.modules.remote_environment as remote_environment
+#import topcoffea.modules.remote_environment as remote_environment
+import dctr.modules.remote_environment as remote_environment
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
@@ -213,11 +214,11 @@ if __name__ == '__main__':
             'stats_log': 'stats.log',
             'tasks_accum_log': 'tasks.log',
 
-           'environment_file': '/users/hnelson2/dctr/analysis/topeft-envs/env_spec_2d613e4e_edit_ac7b9eff.tar.gz',
-            #'environment_file': remote_environment.get_environment(
-            #    extra_conda=["pytorch=2.3.1", "numpy=1.23.5", "pyyaml=6.0.2"],
-            #    extra_pip_local = {"dctr": ["dctr", "setup.py"]},
-            #),
+           # 'environment_file': '/users/hnelson2/dctr/analysis/topeft-envs/env_spec_2d613e4e_edit_ac7b9eff.tar.gz',
+            'environment_file': remote_environment.get_environment(
+               extra_conda=["pytorch=2.3.1", "numpy=1.23.5", "pyyaml=6.0.2"],
+               extra_pip_local = {"dctr": ["dctr", "setup.py"]},
+            ),
             # 'extra_input_files': ["nanogen_processor.py"],
             'extra_input_files' : extra_files,
 
