@@ -7,7 +7,9 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/cms/cephfs/data/store/user/hnelson2/noEFT/nanoGen/TT01j2l_SM/NanoGen_TT01j2l_SM/nanoGen_10016.root",
+    "/cms/cephfs/data/store/user/hnelson2/noEFT/nanoGen/TT01j2l_SM/NanoGen_TT01j2l_SM/nanoGen_10016.root"
+  ],
+  "additional_file": [
     "/cms/cephfs/data/store/user/hnelson2/noEFT/nanoGen/TT01j2l_SM/NanoGen_TT01j2l_SM/nanoGen_10072.root"
   ],
   "nSumOfWeights": 31343.0,
