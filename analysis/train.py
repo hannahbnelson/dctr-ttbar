@@ -232,7 +232,10 @@ def main(outdir, config, cores=1):
 
     ### standardize inputs
     # find means and stdvs for each variable using all of the data
-    means, stdvs = make_standardization_df(pd.concat([train_smeft, train_powheg, validation_smeft, validation_powheg]), outdir=base_path)
+    # means, stdvs = make_standardization_df(pd.concat([train_smeft, train_powheg, validation_smeft, validation_powheg]), outdir=base_path)
+
+    means = config['standardization']['means']
+    stdvs = config['standardization']['stdvs']
 
     # use that mean, stdv to standardize all datasets
     norm_train_smeft = standardize_df(train_smeft, means, stdvs)

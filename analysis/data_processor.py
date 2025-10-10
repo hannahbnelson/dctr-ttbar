@@ -36,7 +36,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######## Initialize Objects  ########
 
         genpart = events.GenPart
-        jets = events.GenJet
         is_final_mask = genpart.hasFlags(["fromHardProcess","isLastCopy"])
 
         ######## Top selection ########
@@ -49,24 +48,27 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
         tau = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
 
-        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
-        t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
+        # e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+        # m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        # t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
 
         nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
         nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
         nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)]
 
-        leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        # leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        leps = ak.concatenate([ele, mu, tau],axis=1)
         nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)       
 
+        jets = events.GenJet
+        jets = jets[abs(jets.partonFlavour) != 5]
         jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
 
         ######## Event selections ########
 
         selections = PackedSelection()
-        top1_mass_mask = (gen_top.mass[:, 0] > 150) & (gen_top.mass[:, 0] < 195)
-        top2_mass_mask = (gen_top.mass[:, 1] > 150) & (gen_top.mass[:, 1] < 195)
+        top1_mass_mask = (gen_top.mass[:, 0] > 150) & (gen_top.mass[:, 0] < 192.5) # changed from 195
+        top2_mass_mask = (gen_top.mass[:, 1] > 150) & (gen_top.mass[:, 1] < 192.5) # changed from 195
         selections.add('top_mass_cut', top1_mass_mask & top2_mass_mask)
         event_selection_mask = selections.all('top_mass_cut')
 
@@ -77,7 +79,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         variables_to_fill = {
             "weights"   : weights[event_selection_mask],
-            "avg_top_pt": np.divide(gen_top.sum().pt, 2.0)[event_selection_mask],
+            # "avg_top_pt": np.divide(gen_top.sum().pt, 2.0)[event_selection_mask],
             "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass[event_selection_mask],
             "top1pt"    : gen_top.pt[:,0][event_selection_mask],
             "top1eta"   : gen_top.eta[:,0][event_selection_mask],

@@ -57,68 +57,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
 
         axes = {
-            "NNoutput": {
-                "regular": (100, 0, 1),
-                "label": "NN output",},
-            "reweights": {
-                "regular": (25, 0, 5),
-                "label": "reweight values",},
             "sow": {
                 "regular": (1, 0, 2),
                 "label": "sum of weights",},
-            "ptll": {
-                "regular": (25, 0, 500),
-                "label": "$p_T(ll)$ [GeV]"},
-            "pttt": {
-                "regular": (35, 0, 700),
-                "label": "$p_T(tt)$ [GeV]"},
-            "mtt": {
-                "regular": (75, 0, 1500),
-                "label": "mtt"},
-            "lep1pt": {
-                "regular": (40, 0, 400),
-                "label": "lep1 pt",},
-            "lep2pt": {
-                "regular": (40, 0, 400),
-                "label": "lep2 pt",},
-            "top1pt": {
-                "regular": (35, 0, 700),
-                "label": "top1 pt",},
-            "top2pt": {
-                "regular": (35, 0, 700),
-                "label": "top2 pt",},
-            "lep1eta": {
-                "regular": (50, -5, 5),
-                "label": "lep1 eta",},
-            "lep2eta": {
-                "regular": (50, -5, 5),
-                "label": "lep2 eta",},
-            "top1eta": {
-                "regular": (50, -5, 5),
-                "label": "top1 eta",},
-            "top2eta": {
-                "regular": (50, -5, 5),
-                "label": "top2 eta",},
-            "lep1phi": {
-                "regular": (40, -4, 4),
-                "label": "lep1 phi",},
-            "lep2phi": {
-                "regular": (40, -4, 4),
-                "label": "lep2 phi",},
-            "top1phi": {
-                "regular": (40, -4, 4),
-                "label": "top1 phi",},
-            "top2phi": {
-                "regular": (40, -4, 4),
-                "label": "top2 phi",},
-            "top1mass": {
-                "regular": (34, 80, 250),
-                "label": "top1 mass", },
-            "top2mass": {
-                "regular": (34, 80, 250),
-                "label": "top2 mass", },
             "j0pt": {
-                "regular": (100, 0, 500),
+                "regular": (500, 0, 500),
                 "label": "j0pt",},
             "j0eta": {
                 "regular": (50, -5, 5), 
@@ -126,15 +69,51 @@ class AnalysisProcessor(processor.ProcessorABC):
             "j0phi": {
                 "regular": (40, -4, 4),
                 "label": "j0phi",},
+            "j0mass": {
+                "regular": (60, 0, 60),
+                "label": "j0mass",},
+            "j1pt": {
+                "regular": (500, 0, 500),
+                "label": "j1pt",},
+            "j1eta": {
+                "regular": (50, -5, 5), 
+                "label": "j1eta",},
+            "j1phi": {
+                "regular": (40, -4, 4),
+                "label": "j1phi",},
+            "j1mass": {
+                "regular": (60, 0, 60),
+                "label": "j1mass",},
+            "j2pt": {
+                "regular": (500, 0, 500),
+                "label": "j2pt",},
+            "j2eta": {
+                "regular": (50, -5, 5), 
+                "label": "j2eta",},
+            "j2phi": {
+                "regular": (40, -4, 4),
+                "label": "j2phi",},
+            "j2mass": {
+                "regular":(60, 0, 60),
+                "label": "j3mass",},
+            "j3pt": {
+                "regular": (500, 0, 500),
+                "label": "j3pt",},
+            "j3eta": {
+                "regular": (50, -5, 5), 
+                "label": "j3eta",},
+            "j3phi": {
+                "regular": (40, -4, 4),
+                "label": "j3phi",},
+            "j3mass": {
+                "regular": (60, 0, 60),
+                "label": "j3mass",},
             "njets": {
                 "regular": (10, 0, 10),
                 "label": "njets",},
-            "njets_clean": {
-                "regular": (10, 0, 10),
-                "label": "njets clean (lep)",},
-            "njets_nu_clean": {
-                "regular": (10, 0, 10),
-                "label": "njets clean (lep+nu)",},
+            "jet_flav":{
+                "regular": (20, -10, 10),
+                "label": "jet flavor",},
         }
 
         histograms = {}
@@ -208,70 +187,70 @@ class AnalysisProcessor(processor.ProcessorABC):
         
         ele  = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
         mu   = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
-        tau = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
-
+        tau  = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
         nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
         nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
         nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)]
         nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)
+        # e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+        # m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        # t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
 
-        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
-        t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
-
-        leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        # leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        leps = ak.concatenate([ele, mu, tau],axis=1)
         leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
-        # nleps = ak.num(leps)
 
         jets = events.GenJet
-        njets = ak.num(jets)
+        # jets = jets[abs(jets.partonFlavour) == 5] # look only at bjets
+        jets = jets[abs(jets.partonFlavour) != 5] # look only at NON-bjets
 
-        jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
-        jets_clean = jets[is_clean(jets, leps, drmin=0.4)]
+        # jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
+        jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
+        jets_clean = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
 
-        jets_clean_nu = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
+        njets = ak.num(jets_clean)
+        jet_flav = ak.flatten(jets_clean.partonFlavour)
 
-        njets_clean = ak.num(jets_clean)
-
-        njets_nu_clean = ak.num(jets_clean_nu)
+        jets_clean = ak.pad_none(jets_clean, 4)
         
-        # jets = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
-        # j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
-        # njets = ak.num(jets_clean)
-
-
+        j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
+        j1 = jets_clean[:,1]
+        j2 = jets_clean[:,2]
+        j3 = jets_clean[:,3]
+        
         ######## Event selections ########
 
-        # selections = PackedSelection()
+        selections = PackedSelection()
 
-        # at_least_two_leps = ak.fill_none(nleps>=2, False)
-        # at_least_two_jets = ak.fill_none(njets>=2, False)
+        exactly_one_jet = ak.fill_none(njets==1, False)
+        exactly_two_jets = ak.fill_none(njets==2, False)
+        exactly_three_jets = ak.fill_none(njets==3, False)
+        at_least_four_jets = ak.fill_none(njets>=4, False)
 
-        # selections.add('2l', at_least_two_leps)
-        # selections.add('2j', at_least_two_jets)
+        selections.add('exactly_1j', exactly_one_jet)
+        selections.add('exactly_2j', exactly_two_jets)
+        selections.add('exactly_3j', exactly_three_jets)
+        selections.add('atleast_4j', at_least_four_jets)
+
+        var_to_skip = {
+            'exactly_1j': ['j1mass', 'j1pt', 'j1eta', 'j1phi','j2mass', 'j2pt', 'j2eta', 'j2phi', 'j3mass', 'j3pt', 'j3eta', 'j3phi'], 
+            'exactly_2j': ['j2mass', 'j2pt', 'j2eta', 'j2phi', 'j3mass', 'j3pt', 'j3eta', 'j3phi'], 
+            'exactly_3j': ['j3mass', 'j3pt', 'j3eta', 'j3phi'], 
+            'atleast_4j': [],
+        }
 
         # event_selection_mask = selections.all('2l', '2j')
 
+        # ######## Get NN Predictions ########
 
-        ######## Get NN Predictions ########
+        # if self._doDNN == True: 
+        #     df_inputs = DNN_tools.make_df_for_DNN(genpart)
+        #     input_dim = df_inputs.shape[1]
 
-        if self._doDNN == True: 
-            df_inputs = DNN_tools.make_df_for_DNN(genpart)
-            input_dim = df_inputs.shape[1]
+        #     model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
+        #     predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
 
-            model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
-            predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()))
-
-            reweights = DNN_tools.compute_reweights(predictions)
-
-
-        ######## Variables for Plotting ########
-
-        # leps = ak.pad_none(leps, 2)
-        # l0 = leps[:,0]
-        # l1 = leps[:,1]
-
-        # ptll = (l0+l1).pt
+        #     reweights = DNN_tools.compute_reweights(predictions)
         
         ######## Normalizations ########
 
@@ -284,72 +263,85 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             genw = np.ones_like(events['event'])
 
-        if self._doDNN == True: 
-            # scaling = 1/(reweights + 1e-8)
-            # event_weights = norm*genw*scaling
-            event_weights = norm*genw*reweights
-        else: 
-            event_weights = norm*genw
+        # if self._doDNN == True: 
+        #     # scaling = 1/(reweights + 1e-8)
+        #     # event_weights = norm*genw*scaling
+        #     event_weights = norm*genw*reweights
+        # else: 
+        #     event_weights = norm*genw
+
+        event_weights = norm*genw
 
         ######## Fill Histograms ########
 
         hout = self.accumulator
 
         variables_to_fill = {
-            # "NNoutput"  : predictions,
-            "sow"       : np.ones_like(events['event']),
-            # "ptll"      : ptll,
-            # "pttt"      : (gen_top[:,0] + gen_top[:,1]).pt,
-            # "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass,
-            # "top1pt"    : gen_top.pt[:,0],
-            # "top1eta"   : gen_top.eta[:,0],
-            # "top1phi"   : gen_top.phi[:,0],
-            # "top1mass"  : gen_top.mass[:,0],
-            # "top2pt"    : gen_top.pt[:,1],
-            # "top2eta"   : gen_top.eta[:,1],
-            # "top2phi"   : gen_top.phi[:,1],
-            # "top2mass"  : gen_top.mass[:,1],
-            # "lep1pt"    : l0.pt, 
-            # "lep1eta"   : l0.eta,
-            # "lep1phi"   : l0.phi,
-            # "lep2pt"    : l1.pt, 
-            # "lep2eta"   : l1.eta,
-            # "lep2phi"   : l1.phi,
-            # "j0pt"      : ak.flatten(j0.pt),
-            # "j0eta"     : ak.flatten(j0.eta),
-            # "j0phi"     : ak.flatten(j0.phi),
-            "njets"       : njets,
-            "njets_clean" : njets_clean,
-            "njets_nu_clean" : njets_nu_clean,
+            # "sow"       : np.ones_like(events['event']),
+            # "njets"     : njets,
+            "j0mass"    : j0.mass,
+            "j0pt"      : j0.pt,
+            "j0eta"     : j0.eta,
+            "j0phi"     : j0.phi,
+            "j1mass"    : j1.mass,
+            "j1pt"      : j1.pt,
+            "j1eta"     : j1.eta,
+            "j1phi"     : j1.phi,
+            "j2mass"    : j2.mass,
+            "j2pt"      : j2.pt,
+            "j2eta"     : j2.eta,
+            "j2phi"     : j2.phi,
+            "j3mass"    : j3.mass,
+            "j3pt"      : j3.pt,
+            "j3eta"     : j3.eta,
+            "j3phi"     : j3.phi,
         }
 
-        if self._doDNN == True: 
-            variables_to_fill['NNoutput'] = predictions
-            variables_to_fill['reweights'] = reweights
+        # if self._doDNN == True: 
+        #     variables_to_fill['NNoutput'] = predictions
+        #     variables_to_fill['reweights'] = reweights
 
-        # eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
+        njets_info = {
+            'njets': njets,
+            'process': hist_axis_name,
+            'weight' : event_weights,
+            'eft_coeff' : None,
+        }
 
-        for var_name, var_values in variables_to_fill.items():
-            if var_name not in self._hist_lst:
-                print(f"Skipping \"{var_name}\", it is not in the list of hists to include")
-                continue
+        jet_flav_info = {
+            'jet_flav': jet_flav,
+            'process': hist_axis_name,
+            'weight': np.ones_like(jet_flav),
+            'eft_coeff': None,
+        }
 
-            fill_info = {
-                var_name    : var_values,
-                "process"   : hist_axis_name,
-                "weight"    : event_weights,
-                "eft_coeff" : eft_coeffs,
-            }
+        hout['njets'].fill(**njets_info)
+        hout['jet_flav'].fill(**jet_flav_info)
 
-            # fill_info = {
-            #     var_name    : var_values,
-            #     "process"   : hist_axis_name,
-            #     "weight"    : event_weights,
-            #     "eft_coeff" : eft_coeffs_cut,
-            # }
+        for ch in var_to_skip.keys(): 
+            event_selection_mask = selections.all(ch)
+            eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
 
-            # print(f"\n filling histogram: {var_name} \n")
-            hout[var_name].fill(**fill_info)
+            for var_name, var_values in variables_to_fill.items():
+                if var_name not in self._hist_lst:
+                    print(f"Skipping \"{var_name}\", it is not in the list of hists to include")
+                    continue
+
+                if var_name in var_to_skip[ch]:
+                    print(f"Skipping \"{var_name}\" for channel {ch}")
+                    continue
+
+                fill_info = {
+                    var_name    : var_values[event_selection_mask],
+                    "process"   : hist_axis_name,
+                    "weight"    : event_weights[event_selection_mask],
+                    "eft_coeff" : eft_coeffs_cut,
+                }
+
+                # print(f"\n filling histogram: {var_name} \n")
+                hout[var_name].fill(**fill_info)
+
+        print("\n\n")
 
         return hout
 

@@ -61,50 +61,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "regular": (100, 0, 1),
                 "label": "NN output",},
             "reweights": {
-                "regular": (25, 0, 5),
+                "regular": (200, 0, 100),
                 "label": "reweight values",},
             "sow": {
                 "regular": (1, 0, 2),
                 "label": "sum of weights",},
-            "ptll": {
-                "regular": (25, 0, 500),
-                "label": "$p_T(ll)$ [GeV]"},
             "pttt": {
                 "regular": (35, 0, 700),
                 "label": "$p_T(tt)$ [GeV]"},
             "mtt": {
                 "regular": (75, 0, 1500),
                 "label": "mtt"},
-            "lep1pt": {
-                "regular": (40, 0, 400),
-                "label": "lep1 pt",},
-            "lep2pt": {
-                "regular": (40, 0, 400),
-                "label": "lep2 pt",},
             "top1pt": {
                 "regular": (35, 0, 700),
                 "label": "top1 pt",},
             "top2pt": {
                 "regular": (35, 0, 700),
                 "label": "top2 pt",},
-            "lep1eta": {
-                "regular": (50, -5, 5),
-                "label": "lep1 eta",},
-            "lep2eta": {
-                "regular": (50, -5, 5),
-                "label": "lep2 eta",},
             "top1eta": {
                 "regular": (50, -5, 5),
                 "label": "top1 eta",},
             "top2eta": {
                 "regular": (50, -5, 5),
                 "label": "top2 eta",},
-            "lep1phi": {
-                "regular": (40, -4, 4),
-                "label": "lep1 phi",},
-            "lep2phi": {
-                "regular": (40, -4, 4),
-                "label": "lep2 phi",},
             "top1phi": {
                 "regular": (40, -4, 4),
                 "label": "top1 phi",},
@@ -117,15 +96,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2mass": {
                 "regular": (34, 80, 250),
                 "label": "top2 mass", },
-            "j0pt": {
-                "regular": (100, 0, 500),
-                "label": "j0pt",},
-            "j0eta": {
-                "regular": (50, -5, 5), 
-                "label": "j0eta",},
-            "j0phi": {
-                "regular": (40, -4, 4),
-                "label": "j0phi",},
             "njets": {
                 "regular": (10, 0, 10),
                 "label": "njets",},
@@ -200,41 +170,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_top = ak.pad_none(genpart[is_final_mask & (abs(genpart.pdgId) == 6)],2)
         gen_top = gen_top[ak.argsort(gen_top.pt, axis=1, ascending=False)]
         
-        # ele  = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
-        # mu   = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
-        # nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
-        # nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
-        # nu = ak.concatenate([nu_ele,nu_mu],axis=1)
-        # e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-        # m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        ele  = genpart[is_final_mask & (abs(genpart.pdgId) == 11)]
+        mu   = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
+        tau  = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
+        nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
+        nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
+        nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)]
+        nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)
+        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+        t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
 
-        # leps = ak.concatenate([ele[e_selec], mu[m_selec]],axis=1)
-        # leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
-        # nleps = ak.num(leps)
+        leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
+        nleps = ak.num(leps)
 
         jets = events.GenJet
-        njets = ak.num(jets)
-        # jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
-        # # jets_clean = jets[is_clean(jets, leps, drmin=0.4)]
-        # jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
+        jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
+        jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
          
-        # jets = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
-        # j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
-        # njets = ak.num(jets_clean)
-
-
-        ######## Event selections ########
-
-        # selections = PackedSelection()
-
-        # at_least_two_leps = ak.fill_none(nleps>=2, False)
-        # at_least_two_jets = ak.fill_none(njets>=2, False)
-
-        # selections.add('2l', at_least_two_leps)
-        # selections.add('2j', at_least_two_jets)
-
-        # event_selection_mask = selections.all('2l', '2j')
-
+        njets = ak.num(jets_clean)
 
         ######## Get NN Predictions ########
 
@@ -244,18 +199,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
             predictions = DNN_tools.get_predictions(model, torch.from_numpy(df_inputs.to_numpy()).float())
-
             reweights = DNN_tools.compute_reweights(predictions)
 
+            ######## Event selections ########
 
-        ######## Variables for Plotting ########
+            # selections = PackedSelection()
+            # predictions_less98 = ak.fill_none(predictions<0.98, False)
+            # selections.add('pred', predictions_less98)
+            # event_selection_mask = selections.all('pred')
 
-        # leps = ak.pad_none(leps, 2)
-        # l0 = leps[:,0]
-        # l1 = leps[:,1]
-
-        # ptll = (l0+l1).pt
-        
         ######## Normalizations ########
 
         lumi = 1000.0*get_lumi(year)
@@ -279,9 +231,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator
 
         variables_to_fill = {
-            # "NNoutput"  : predictions,
             "sow"       : np.ones_like(events['event']),
-            # "ptll"      : ptll,
             "pttt"      : (gen_top[:,0] + gen_top[:,1]).pt,
             "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass,
             "top1pt"    : gen_top.pt[:,0],
@@ -292,23 +242,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2eta"   : gen_top.eta[:,1],
             "top2phi"   : gen_top.phi[:,1],
             "top2mass"  : gen_top.mass[:,1],
-            # "lep1pt"    : l0.pt, 
-            # "lep1eta"   : l0.eta,
-            # "lep1phi"   : l0.phi,
-            # "lep2pt"    : l1.pt, 
-            # "lep2eta"   : l1.eta,
-            # "lep2phi"   : l1.phi,
-            # "j0pt"      : ak.flatten(j0.pt),
-            # "j0eta"     : ak.flatten(j0.eta),
-            # "j0phi"     : ak.flatten(j0.phi),
             "njets"     : njets,
         }
 
-        if self._doDNN == True: 
-            variables_to_fill['NNoutput'] = predictions
-            variables_to_fill['reweights'] = reweights
-
-        # eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
+        eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None
 
         for var_name, var_values in variables_to_fill.items():
             if var_name not in self._hist_lst:
@@ -319,18 +256,26 @@ class AnalysisProcessor(processor.ProcessorABC):
                 var_name    : var_values,
                 "process"   : hist_axis_name,
                 "weight"    : event_weights,
-                "eft_coeff" : eft_coeffs,
+                "eft_coeff" : eft_coeffs_cut,
             }
 
-            # fill_info = {
-            #     var_name    : var_values,
-            #     "process"   : hist_axis_name,
-            #     "weight"    : event_weights,
-            #     "eft_coeff" : eft_coeffs_cut,
-            # }
-
-            # print(f"\n filling histogram: {var_name} \n")
             hout[var_name].fill(**fill_info)
+
+        if self._doDNN == True: 
+            DNN_variables = {
+                'NNoutput': predictions,
+                'reweights': reweights,
+            }
+
+            for var_name, var_values in DNN_variables.items():
+                fill_info = {
+                    var_name : var_values,
+                    'process': hist_axis_name,
+                    'weights': norm*genw,
+                    'eft_coeff': None,
+                }
+
+                hout[var_name].fill(**fill_info)
 
         return hout
 

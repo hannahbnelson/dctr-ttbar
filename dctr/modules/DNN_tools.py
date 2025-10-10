@@ -39,28 +39,28 @@ from torch import optim
 #         'top2phi': 1.8138397,
 #         'top2mass': 3.067736,}
 
-means = {'avg_top_pt': 34.376251220703125,
-        'mtt': 522.8203735351562,
-        'top1pt': 145.5338134765625,
-        'top1eta': -0.0001917825429700315,
-        'top1phi': -3.1880917958915234e-05,
-        'top1mass': 172.4884033203125,
-        'top2pt': 106.31061553955078,
-        'top2eta': 0.0010105125838890672,
-        'top2phi': -0.0005318457842804492,
-        'top2mass': 172.44601440429688,
-        'njets': 5.04378965147218,}
-stdvs = {'avg_top_pt': 38.353755950927734,
-        'mtt': 175.366943359375,
-        'top1pt': 88.27494812011719,
-        'top1eta': 1.6879268884658813,
-        'top1phi': 1.8138645887374878,
-        'top1mass': 3.0214266777038574,
-        'top2pt': 73.91356658935547,
-        'top2eta': 1.9872841835021973,
-        'top2phi': 1.8137520551681519,
-        'top2mass': 3.066155195236206,
-        'njets': 2.0878883080651107,}
+# means = {'avg_top_pt': 34.376251220703125,
+#         'mtt': 522.8203735351562,
+#         'top1pt': 145.5338134765625,
+#         'top1eta': -0.0001917825429700315,
+#         'top1phi': -3.1880917958915234e-05,
+#         'top1mass': 172.4884033203125,
+#         'top2pt': 106.31061553955078,
+#         'top2eta': 0.0010105125838890672,
+#         'top2phi': -0.0005318457842804492,
+#         'top2mass': 172.44601440429688,
+#         'njets': 5.04378965147218,}
+# stdvs = {'avg_top_pt': 38.353755950927734,
+#         'mtt': 175.366943359375,
+#         'top1pt': 88.27494812011719,
+#         'top1eta': 1.6879268884658813,
+#         'top1phi': 1.8138645887374878,
+#         'top1mass': 3.0214266777038574,
+#         'top2pt': 73.91356658935547,
+#         'top2eta': 1.9872841835021973,
+#         'top2phi': 1.8137520551681519,
+#         'top2mass': 3.066155195236206,
+#         'njets': 2.0878883080651107,}
 
 def is_clean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
@@ -176,7 +176,10 @@ def get_predictions(model, data_input):
 
 #     return norm_NN_inputs
 
-def make_df_for_DNN(genpart, jets):
+def make_df_for_DNN(genpart, jets, config_path):
+
+    with open(config_path, 'r') as f:
+        config_dict = yaml.safe_load(f)
 
     is_final_mask = genpart.hasFlags(["fromHardProcess","isLastCopy"])
     gen_top = ak.pad_none(genpart[is_final_mask & (abs(genpart.pdgId) == 6)],2)
@@ -186,15 +189,16 @@ def make_df_for_DNN(genpart, jets):
     mu = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
     tau = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
 
-    e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-    m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
-    t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
+    # e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
+    # m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
+    # t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
 
     nu_ele = genpart[is_final_mask & (abs(genpart.pdgId) == 12)]
     nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
     nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)] 
 
-    leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+    # leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+    leps = ak.concatenate([ele, mu, tau],axis=1)
     nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)       
 
     jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
@@ -215,6 +219,9 @@ def make_df_for_DNN(genpart, jets):
         "njets"     : njets,
     }
 
+    means = config_dict['standardization']['means']
+    stdvs = config_dict['standardization']['stdvs']
+
     norm_NN_inputs = standardize_df(pd.DataFrame.from_dict(variables_to_fill_df), means, stdvs)
 
     return norm_NN_inputs
@@ -223,15 +230,15 @@ def make_df_for_DNN(genpart, jets):
 def make_standardization_df(df, outdir):
 
     # make a copy as to not change original df
-    norm_df = df.copy()
+    # norm_df = df.copy()
 
     # select only numerical columns
-    numerical_cols = df.select_dtypes(include=np.number).columns
+    # numerical_cols = df.select_dtypes(include=np.number).columns
     means = df.mean()
     stdvs = df.std()
 
-    means.to_csv(os.path.join(outdir, "standardization_means.csv"), index=True)
-    stdvs.to_csv(os.path.join(outdir, "standardization_stds.csv"), index=True)
+    # means.to_csv(os.path.join(outdir, "standardization_means.csv"), index=True)
+    # stdvs.to_csv(os.path.join(outdir, "standardization_stds.csv"), index=True)
 
     return means, stdvs
 
