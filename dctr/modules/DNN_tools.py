@@ -14,54 +14,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch import optim
 
-# means and stdv to standardize pd df for input into trained model
-# these are calcualted using the smeft/powheg train and validation datasets 
-# negative weights and top mass cuts applied before creating the datasets
-# see dctr/analysis/make_pytorch_dataset.py
-# means = {'avg_top_pt': 34.37594,
-#         'mtt': 522.8204,
-#         'top1pt': 145.54019,
-#         'top1eta': -0.00080191356,
-#         'top1phi': 0.0002472976,
-#         'top1mass': 172.4881,
-#         'top2pt': 106.316284,
-#         'top2eta': 0.0002492254,
-#         'top2phi': -0.00088213355,
-#         'top2mass': 172.44499,}
-# stdvs = {'avg_top_pt': 38.34243,
-#         'mtt': 175.4714,
-#         'top1pt': 88.27853,
-#         'top1eta': 1.6881704,
-#         'top1phi': 1.8136373,
-#         'top1mass': 3.0224695,
-#         'top2pt': 73.93133,
-#         'top2eta': 1.9869514,
-#         'top2phi': 1.8138397,
-#         'top2mass': 3.067736,}
-
-# means = {'avg_top_pt': 34.376251220703125,
-#         'mtt': 522.8203735351562,
-#         'top1pt': 145.5338134765625,
-#         'top1eta': -0.0001917825429700315,
-#         'top1phi': -3.1880917958915234e-05,
-#         'top1mass': 172.4884033203125,
-#         'top2pt': 106.31061553955078,
-#         'top2eta': 0.0010105125838890672,
-#         'top2phi': -0.0005318457842804492,
-#         'top2mass': 172.44601440429688,
-#         'njets': 5.04378965147218,}
-# stdvs = {'avg_top_pt': 38.353755950927734,
-#         'mtt': 175.366943359375,
-#         'top1pt': 88.27494812011719,
-#         'top1eta': 1.6879268884658813,
-#         'top1phi': 1.8138645887374878,
-#         'top1mass': 3.0214266777038574,
-#         'top2pt': 73.91356658935547,
-#         'top2eta': 1.9872841835021973,
-#         'top2phi': 1.8137520551681519,
-#         'top2mass': 3.066155195236206,
-#         'njets': 2.0878883080651107,}
-
 def is_clean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
@@ -113,13 +65,12 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
         return self.main_module(x)
 
-def compute_reweights(pred): 
 
+def compute_reweights(pred): 
     return pred / (1 - pred + 1e-8)
     
 
-def load_saved_model(config_path, model_path, indim): 
-
+def load_saved_model(config_path, model_path, indim):
     with open(config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
 

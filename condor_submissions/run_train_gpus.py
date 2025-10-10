@@ -26,6 +26,9 @@ max_retries = 0
 # Use this just in case the last machine had an issue with your code/environment so it doesn't grab the same machine.
 requirements = Machine =!= LastRemoteHost
 
+notify_user = hnelson2@nd.edu
+notification = always
+
 queue 1
 """
 
@@ -48,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--train',  default='/users/hnelson2/dctr/analysis/train.py', help='python trainingi script')
     parser.add_argument('--config', default='/users/hnelson2/dctr/analysis/config.yaml', help='yaml config for train.py')
     parser.add_argument('--outdir', default=f"gpu_{now}", help='name of output directory in dctr/condor_submissions')
-    parser.add_argument('--cores',  default=8, help='specify number of cores per job')
+    parser.add_argument('--cores',  default=1, help='specify number of cores per job')
     parser.add_argument('--memory', default=32, help='specify memory per job')
     parser.add_argument('--gpus', default=2, help='specift number of GPUs')
 
@@ -65,8 +68,8 @@ if __name__ == "__main__":
     path_to_config = os.path.abspath(config_path)
 
     # Job flavor for Condor - see https://batchdocs.web.cern.ch/local/submit.html
-    # job_flavor = "longlunch"
-    job_flavor = "espresso"
+    job_flavor = "longlunch"
+    # job_flavor = "espresso"
 
     # Get directory of this file
     cwd = os.path.dirname(os.path.abspath(__file__))

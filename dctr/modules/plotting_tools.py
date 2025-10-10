@@ -1,6 +1,6 @@
 import pickle
 import gzip
-
+import os
 import numpy as np
 import pandas as pd
 import awkward as ak
@@ -27,10 +27,8 @@ def make_basic_plots(metrics, outdir):
 
         outname = os.path.join(outdir, name)
         fig.savefig(f"{outname}.png")
-        logging.info(f"figure saved in {outname}.png")
 
-
-def make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, outdir):
+def make_DNN_outputs_plot(smeft_predictions, powheg_predictions, outdir):
     hep.style.use("CMS")
     fig, ax = plt.subplots()
     bins = np.linspace(0, 1, 100)
@@ -44,7 +42,6 @@ def make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, outdir):
 
     outname = os.path.join(outdir, "NNoutputs")
     fig.savefig(f"{outname}.png")
-    logging.info(f"figure saved in {outname}.png")
 
 
 def make_roc_plot(true_labels, probabilities, outdir):
@@ -64,5 +61,3 @@ def make_roc_plot(true_labels, probabilities, outdir):
 
     outname = os.path.join(outdir, "ROC")
     fig.savefig(f"{outname}.png")
-    logging.info(f"figure saved in {outname}.png")
-

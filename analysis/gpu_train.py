@@ -25,6 +25,8 @@ import mplhep as hep
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, roc_curve, f1_score, precision_score, recall_score
+import dctr.modules.DNN_tools as DNN_tools
+import dctr.modules.plotting_tools as plt_tools
 
 class WeightedDataset(Dataset):
     def __init__(self, data, weights, targets):
@@ -92,117 +94,45 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
         return self.main_module(x)
 
-
-# Get predictions from loaded model
-def get_predictions(model, data_input):
+def get_predictions(model, dataloader, device):
+    # gets predictions using the GPU and dataloader
     all_probabilities = []
 
-    model.eval() # set model into eval mode
-
-    # 5. Disable gradient calculation during inference
+    model.eval()
     with torch.no_grad():
-        inputs = data_input
-        outputs = model(inputs)
 
-        # For binary classification, outputs are probabilities (single value per sample)
-        # Flatten to 1D array if outputs are (batch_size, 1)
-        probabilities = outputs.squeeze(1).cpu().numpy()
+        for batch_samples, _, _ in dataloader:
+            batch_samples = batch_samples.to(device, dtype=torch.float32)
 
-        all_probabilities.extend(probabilities)
+            outputs = model(batch_samples)
 
-    return np.array(all_probabilities)
+            # probabilities = outputs.squeeze(1).cpu().numpy()
+            all_probabilities.append(outputs.squeeze(1).detach())
 
+    predictions_gpu = torch.cat(all_probabilities)
+    predictions_np = predictions_gpu.cpu().numpy()
 
-def make_basic_plots(metrics, outdir):
-    hep.style.use("CMS")
-    basic_plots = {"training_loss": metrics['train_loss'], 
-                    "validation_loss": metrics['val_loss'], 
-                    "validation_accuracy": metrics['val_accuracy'],
-                    "validation_precision": metrics['val_precision'], 
-                    "validation_recall": metrics['val_recall'],
-                    }
+    return predictions_np
 
-    for item in basic_plots.keys(): 
-        fig, ax = plt.subplots()
-        ax.plot(metrics['epoch'], basic_plots[item])    
-        ax.set_xlabel("epoch")
-        ax.set_ylabel(item)
-        ax.set_title(item)
-
-        outname = os.path.join(outdir, item)
-        fig.savefig(f"{outname}.png")
-        logging.info(f"figure saved in {outname}.png")
-
-
-def make_DNN_ouptuts_plot(smeft_predictions, powheg_predictions, outdir):
+def plot_loss(epochs, train_loss, val_loss, outdir, title=''):
+    '''
+    Parameters: 
+        - epochs, train_loss, val_loss are all lists
+        - outdir: str 
+    '''
     hep.style.use("CMS")
     fig, ax = plt.subplots()
-    bins = np.linspace(0, 1, 100)
+    ax.plot(epochs, train_loss, label='training')
+    ax.plot(epochs, val_loss, label='validation')
 
-    ax.hist(smeft_predictions, bins=bins, histtype='step', label="smeft")
-    ax.hist(powheg_predictions, bins=bins, histtype='step', label="powheg")
+    ax.legend(loc='upper right')
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+    ax.set_title(title)
 
-    ax.set_xlabel("NN output")
-    ax.set_ylabel("Events")
-    ax.legend(loc='best')
-
-    outname = os.path.join(outdir, "NNoutputs")
+    outname = os.path.join(outdir, "loss")
     fig.savefig(f"{outname}.png")
-    logging.info(f"figure saved in {outname}.png")
-
-
-def make_roc_plot(true_labels, probabilities, outdir):
-    hep.style.use("CMS")
-    fpr, tpr, threshold = roc_curve(true_labels, probabilities)
-    roc_auc = roc_auc_score(true_labels, probabilities)
-
-    fig, ax = plt.subplots()
-    ax.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
-    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    ax.set_xlim([0.0, 1.0])
-    ax.set_ylim([0.0, 1.05])
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    ax.set_title(f'ROC Curve')
-    ax.grid(True)
-
-    outname = os.path.join(outdir, "ROC")
-    fig.savefig(f"{outname}.png")
-    logging.info(f"figure saved in {outname}.png")
-
-
-def make_standardization_df(df, outdir):
-
-    # make a copy as to not change original df
-    norm_df = df.copy()
-
-    # select only numerical columns
-    numerical_cols = df.select_dtypes(include=np.number).columns
-    means = df.mean()
-    stdvs = df.std()
-
-    means.to_csv(os.path.join(outdir, "standardization_means.csv"), index=True)
-    stdvs.to_csv(os.path.join(outdir, "standardization_stds.csv"), index=True)
-
-    return means, stdvs
-
-
-def standardize_df(df, means, stdvs):
-    # means and stdvs are separately computed on the whole dataset
-    # means and stdvs are also pandas dataframes
-
-    # make a copy as to not change original df
-    norm_df = df.copy()
-
-    # if stdv is 0, set to 0 
-    # if stdv is not 0, normalized = (orig - mean)/stdv
-    for col in norm_df: 
-        if stdvs[col] != 0:
-            norm_df[col] = (df[col] - means[col])/(stdvs[col])
-        else: 
-            norm_df[col] = 0.0
-
-    return norm_df
+    logging.info(f"figure saved to {outname}.png")
 
 
 def main(outdir, config, cores=1):
@@ -238,7 +168,7 @@ def main(outdir, config, cores=1):
 
     ### create training datasets
     train_smeft = pickle.load(gzip.open(inputs['train_smeft'])).drop(['weights'], axis=1)
-    norm_train_smeft = standardize_df(train_smeft, means, stdvs)
+    norm_train_smeft = DNN_tools.standardize_df(train_smeft, means, stdvs)
     del train_smeft
 
     input_dim = norm_train_smeft.shape[1] 
@@ -260,7 +190,7 @@ def main(outdir, config, cores=1):
     del truth_train_smeft
 
     train_powheg = pickle.load(gzip.open(inputs['train_powheg'])).drop(['weights'], axis=1)
-    norm_train_powheg = standardize_df(train_powheg, means, stdvs)
+    norm_train_powheg = DNN_tools.standardize_df(train_powheg, means, stdvs)
     del train_powheg
 
     weights_train_powheg = np.ones_like(norm_train_powheg['mtt'], dtype=np.float32)
@@ -279,12 +209,12 @@ def main(outdir, config, cores=1):
     del weights_train_powheg
     del truth_train_powheg
 
-    train_dataloader = DataLoader(ConcatDataset([smeft_dataset, powheg_dataset]), batch_size=params['batch_size'], shuffle=True, num_workers=cores)
+    train_dataloader = DataLoader(ConcatDataset([smeft_dataset, powheg_dataset]), batch_size=params['batch_size'], shuffle=True, num_workers=0)
     logging.info(f"created training dataloader")
 
     ### create validation datasets 
     val_smeft = pickle.load(gzip.open(inputs['validation_smeft'])).drop(['weights'], axis=1)
-    norm_val_smeft = standardize_df(val_smeft, means, stdvs)
+    norm_val_smeft = DNN_tools.standardize_df(val_smeft, means, stdvs)
     del val_smeft
 
     weights_val_smeft = np.ones_like(norm_val_smeft['mtt'], dtype=np.float32)
@@ -305,7 +235,7 @@ def main(outdir, config, cores=1):
     del truth_val_smeft
 
     val_powheg = pickle.load(gzip.open(inputs['validation_powheg'])).drop(['weights'], axis=1)
-    norm_val_powheg = standardize_df(val_powheg, means, stdvs)
+    norm_val_powheg = DNN_tools.standardize_df(val_powheg, means, stdvs)
     del val_powheg
 
     weights_val_powheg = np.ones_like(norm_val_powheg['mtt'], dtype=np.float32)
@@ -396,8 +326,9 @@ def main(outdir, config, cores=1):
         all_val_outputs = []
         all_val_targets = []
         epoch_val_loss = torch.tensor(0.0, device=device)
-        model.eval()    # sets the model in evaluation mode
-        with torch.no_grad(): # disable gradient calculations during validation
+        model.eval()            # sets the model in evaluation mode
+        with torch.no_grad():   # disable gradient calculations during validation
+
             for batch_val_samples, batch_val_weights, batch_val_targets in validation_dataloader: 
 
                 batch_val_samples = batch_val_samples.to(device, dtype=torch.float32)
@@ -407,7 +338,7 @@ def main(outdir, config, cores=1):
                 batch_val_outputs = model(batch_val_samples).squeeze(1)
                 batch_val_loss = loss_fn(batch_val_outputs, batch_val_targets)
 
-                epoch_val_loss += batch_val_loss.detach() # Keep loss on GPU and accumulate
+                epoch_val_loss += batch_val_loss.detach()           # Keep loss on GPU and accumulate
                 all_val_targets.append(batch_val_targets.detach())
                 all_val_outputs.append(batch_val_outputs.detach())
 
@@ -418,7 +349,7 @@ def main(outdir, config, cores=1):
 
         val_targets = torch.cat(all_val_targets).cpu().numpy()
         val_outputs_all = torch.cat(all_val_outputs).cpu().numpy()
-        val_predictions = (val_outputs_all > 0.5).astype(int) # creates boolean tensor from outputs (0 to 1)
+        val_predictions = (val_outputs_all > 0.5).astype(int)       # creates boolean tensor from outputs (0 to 1)
 
         val_roc_auc = roc_auc_score(val_targets, val_predictions) 
         validation_outputs['val_roc_auc'].append(val_roc_auc)
@@ -431,9 +362,17 @@ def main(outdir, config, cores=1):
                      f"    Validation Loss: {val_loss_epoch:.6f}, "
                      f"    Current LR: {current_lr:.10f}")
 
-    logging.info(f"-------- TRAINING LOOP FINISHED ({nepochs} completed) -------- \n\n")
+        # Save Model Checkpoint
+        if (epoch+1) % config['monitoring']['checkpoint_frequency'] == 0:
+            checkpoint_path = os.path.join(output_dir, f"model_checkpoint_epoch_{epoch+1}.pt")
+            torch.save(model.state_dict(), checkpoint_path)
+            logging.info(f"---> Model checkpoint saved for epoch {epoch+1}")
 
-    ### Save Training/Validation Metrics to yaml ###
+
+    logging.info(f"--------  TRAINING LOOP FINISHED  -------- \n\n")
+
+
+    ### Save Final Model & Training/Validation Metrics to yaml ###
     training_outputs_path = os.path.join(output_dir, "training_metrics.yaml")
     with open(training_outputs_path, 'w') as f:
         yaml.safe_dump(training_outputs, f)
@@ -443,6 +382,68 @@ def main(outdir, config, cores=1):
     with open(validation_outputs_path, 'w') as f:
         yaml.safe_dump(validation_outputs, f)
     logging.info(f"validation metrics saved to {validation_outputs_path}")
+
+    final_model_path = os.path.join(output_dir, "final_model.pt")
+    torch.save(model.state_dict(), final_model_path)
+    logging.info(f"---> Final model saved to {final_model_path}")
+
+    ### Prepare predictions for plotting ###
+    smeft_val_dataloader = DataLoader(
+        val_smeft_dataset, 
+        batch_size=params['batch_size'], 
+        shuffle=False, 
+        num_workers=0
+    )
+    powheg_val_dataloader = DataLoader(
+        val_powheg_dataset, 
+        batch_size=params['batch_size'], 
+        shuffle=False, 
+        num_workers=0
+    )
+
+    full_val_dataloader = DataLoader(
+        ConcatDataset([val_smeft_dataset, val_powheg_dataset]),
+        batch_size=params['batch_size'],
+        shuffle=False,
+        num_workers=0,
+    )
+
+    full_val_true_labels = []
+    with torch.no_grad():
+        for _, _, batch_targets in full_val_dataloader:
+            full_val_true_labels.append(batch_targets.squeeze().cpu().numpy())
+    true_labels = np.concatenate(full_val_true_labels)
+
+    logging.info(f"getting predictions for ROC and DNN output plots...")
+    smeft_predictions = get_predictions(model, smeft_val_dataloader, device)
+    powheg_predictions = get_predictions(model, powheg_val_dataloader, device)
+    all_probabilities = get_predictions(model, full_val_dataloader, device)
+
+    logging.info(f"Creating plots in {plotting_dir}")
+    ### Plot Loss, DNN output and ROC from training ### 
+    plot_loss(
+        epochs=training_outputs['epoch'], 
+        train_loss = training_outputs['train_loss'],
+        val_loss = validation_outputs['val_loss'],
+        outdir = plotting_dir)
+
+    # add code to plot the DNN outputs also
+    plt_tools.make_DNN_outputs_plot(
+        smeft_predictions = smeft_predictions,
+        powheg_predictions = powheg_predictions,
+        outdir = plotting_dir)
+    logging.info(f"DNN outputs plot saved")
+
+    # figure out how to get the validation inputs from the WeightedDataset
+    # validation_predictions = DNN_tools.get_predictions(model, )
+    plt_tools.make_roc_plot(
+        true_labels = true_labels, 
+        probabilities = all_probabilities,
+        outdir = plotting_dir)
+    logging.info(f"ROC curve plot saved")
+
+    logging.info(f"*** Done! ***")
+
 
 if __name__=="__main__":
 
