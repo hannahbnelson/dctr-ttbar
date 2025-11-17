@@ -22,6 +22,8 @@ def main(fsmeft_train, fpowheg_train, fsmeft_val, fpowheg_val, outdir, title):
 
     # split the smeft dataset into training and validation (no need for test set, that will be from centrally produced mtt samples)
     # smeft_training, smeft_validation = train_test_split(inputs_smeft, test_size=0.3, random_state=rando)
+
+    inputs_smeft_train = inputs_smeft_train.head(4000000)
     
     # get the number of events in each smeft dataset 
     num_smeft_train = inputs_smeft_train.shape[0]
@@ -58,7 +60,7 @@ def main(fsmeft_train, fpowheg_train, fsmeft_val, fpowheg_val, outdir, title):
         'stdvs': stdvs.to_dict(),
     }
 
-    yaml_path = os.path.join(outdir, "standardization.yaml")
+    yaml_path = os.path.join(outdir, f"{title}_standardization.yaml")
     with open(yaml_path, 'w') as file: 
         yaml.safe_dump(standardizations, file)
     print(f"standardization constants saved to {yaml_path}")
