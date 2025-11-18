@@ -215,6 +215,7 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': '/users/hnelson2/dctr/analysis/topeft-envs/env_spec_2d613e4e_edit_HEAD.tar.gz', #version before adding mean/stdv to DNN_tools
+            # 'environment_file': '',
             # 'environment_file': remote_environment.get_environment(
             #    extra_conda=["pytorch=2.3.1", "numpy=1.23.5", "pyyaml=6.0.2"],
             #    extra_pip_local = {"dctr": ["dctr", "setup.py"]},

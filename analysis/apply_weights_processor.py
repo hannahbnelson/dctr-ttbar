@@ -129,6 +129,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "njets": {
                 "regular": (10, 0, 10),
                 "label": "njets",},
+            "ljets": {
+                "regular": (10, 0, 10),
+                "label": "ljets",},
         }
 
         histograms = {}
@@ -218,12 +221,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         jets = events.GenJet
         jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
-        # jets_clean = jets[is_clean(jets, leps, drmin=0.4)]
         jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
          
         # jets = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
         j0 = jets_clean[ak.argmax(jets_clean.pt, axis=-1, keepdims=True)]
         njets = ak.num(jets_clean)
+
+        ljets = jets_clean[abs(jets_clean.partonFlavour) != 5]
 
 
         ######## Event selections ########
@@ -304,6 +308,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "j0eta"     : ak.flatten(j0.eta),
             "j0phi"     : ak.flatten(j0.phi),
             "njets"     : njets,
+            "ljets"     : ak.num(ljets),
         }
         
         eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None

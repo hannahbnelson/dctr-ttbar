@@ -1,0 +1,70 @@
+inputs:
+  train_smeft: '/users/hnelson2/dctr/analysis/training_datasets_jetinfo/jetinfo_inputs_smeft_training.pkl.gz'
+  train_powheg: '/users/hnelson2/dctr/analysis/training_datasets_jetinfo/jetinfo_inputs_powheg_training.pkl.gz' 
+  validation_smeft: '/users/hnelson2/dctr/analysis/training_datasets_jetinfo/jetinfo_inputs_smeft_validation.pkl.gz' 
+  validation_powheg: '/users/hnelson2/dctr/analysis/training_datasets_jetinfo/jetinfo_inputs_powheg_validation.pkl.gz'
+
+standardization:
+  means:
+    j0eta: 0.0004861294423910137
+    j0pt: 57.367419602787784
+    j1eta: 0.000399446124238115
+    j1pt: 22.20910266680852
+    j2eta: 5.333862048378508e-05
+    j2pt: 10.585091847608693
+    mtt: 522.7521362304688
+    njets: 2.763648005187192
+    top1eta: -0.0005035596550442278
+    top1mass: 172.47637939453125
+    top1phi: 0.0001291455264436081
+    top1pt: 145.5435028076172
+    top2eta: 0.0011736969463527203
+    top2mass: 172.4351806640625
+    top2phi: -0.00044457241892814636
+    top2pt: 106.31466674804688
+  stdvs:
+    j0eta: 1.9996979479608614
+    j0pt: 69.72700409694087
+    j1eta: 1.8869850988168526
+    j1pt: 28.38031164297306
+    j2eta: 1.6344029250804735
+    j2pt: 15.382380382378562
+    mtt: 175.27395629882812
+    njets: 1.9713566173711252
+    top1eta: 1.6875548362731934
+    top1mass: 2.979868173599243
+    top1phi: 1.8138631582260132
+    top1pt: 88.2656478881836
+    top2eta: 1.9872373342514038
+    top2mass: 3.0298900604248047
+    top2phi: 1.8136576414108276
+    top2pt: 73.9027099609375
+
+model:
+  - type: Linear
+    in_dim: 0
+    out_dim: 2048
+  - type: Activation
+    name: LeakyReLU
+  - type: Linear
+    in_dim: 2048
+    out_dim: 2048
+  - type: Activation
+    name: LeakyReLU
+  - type: Linear
+    in_dim: 1028
+    out_dim: 1
+  - type: Activation
+    name: Sigmoid
+
+params:
+  nepochs: 150
+  batch_size: 1028
+  learning_rate: 1.0e-3
+  sched_factor: 0.1
+  sched_patience: 10
+  sched_threshold: 1.0e-4
+  
+monitoring: 
+  checkpoint_frequency: 50
+  validation_frequency: 10

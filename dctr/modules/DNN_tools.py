@@ -78,7 +78,8 @@ def load_saved_model(config_path, model_path, indim):
     # input_dim = norm_NN_inputs.shape[1]
     model = NeuralNetwork(indim, model_architecture)
 
-    model.load_state_dict(torch.load(model_path))
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    model.load_state_dict(state_dict) 
 
     return model
 
@@ -152,12 +153,13 @@ def make_df_for_DNN(genpart, jets, config_path):
     leps = ak.concatenate([ele, mu, tau],axis=1)
     nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)       
 
+    jets = jets[abs(jets.partonFlavour) != 5]
     jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
     njets = ak.num(jets_clean)
 
     ### Fill df with inputs to run through trained model
     variables_to_fill_df = {
-        "avg_top_pt": np.divide(gen_top.sum().pt, 2.0),
+        # "avg_top_pt": np.divide(gen_top.sum().pt, 2.0),
         "mtt"       : (gen_top[:,0] + gen_top[:,1]).mass,
         "top1pt"    : gen_top.pt[:,0],
         "top1eta"   : gen_top.eta[:,0],
@@ -212,3 +214,12 @@ def standardize_df(df, means, stdvs):
     return norm_df
 
 
+def load_data_to_numpy(f):
+    df_unpickled = pickle.load(f)
+    
+    col_names = list(df_unpickled.columns)
+    data_np = df_unpickled.to_numpy().astype(np.float32)
+
+    del df_unpickled 
+
+    return data_np, col_names

@@ -99,6 +99,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "njets": {
                 "regular": (10, 0, 10),
                 "label": "njets",},
+            "ljets": {
+                "regular": (10, 0, 10),
+                "label": "ljets",},
         }
 
         histograms = {}
@@ -177,24 +180,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         nu_mu = genpart[is_final_mask & (abs(genpart.pdgId) == 14)]
         nu_tau = genpart[is_final_mask & (abs(genpart.pdgId) == 16)]
         nu = ak.concatenate([nu_ele,nu_mu, nu_tau],axis=1)
-        e_selec = ((ele.pt>20) & (abs(ele.eta)<2.5))
-        m_selec = ((mu.pt>20) & (abs(mu.eta)<2.5))
-        t_selec = ((tau.pt>20) & (abs(tau.eta)< 2.5))
 
-        leps = ak.concatenate([ele[e_selec], mu[m_selec], tau[t_selec]],axis=1)
+        leps = ak.concatenate([ele, mu, tau],axis=1)
         leps = leps[ak.argsort(leps.pt, axis=-1, ascending=False)]
         nleps = ak.num(leps)
 
         jets = events.GenJet
-        jets = jets[(jets.pt>30) & (abs(jets.eta)<2.5)]
         jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
          
         njets = ak.num(jets_clean)
+        ljets = jets_clean[abs(jets_clean.partonFlavour) != 5]
+
 
         ######## Get NN Predictions ########
 
         if self._doDNN == True: 
-            df_inputs = DNN_tools.make_df_for_DNN(genpart, events.GenJet)
+            df_inputs = DNN_tools.make_df_for_DNN(genpart, events.GenJet, self._DNNyaml)
             input_dim = df_inputs.shape[1]
 
             model = DNN_tools.load_saved_model(self._DNNyaml, self._DNNmodel, input_dim)
@@ -243,6 +244,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2phi"   : gen_top.phi[:,1],
             "top2mass"  : gen_top.mass[:,1],
             "njets"     : njets,
+            "ljets"     : ak.num(ljets), 
         }
 
         eft_coeffs_cut = eft_coeffs[event_selection_mask] if eft_coeffs is not None else None

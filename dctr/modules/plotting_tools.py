@@ -50,13 +50,13 @@ def make_roc_plot(true_labels, probabilities, outdir):
     roc_auc = roc_auc_score(true_labels, probabilities)
 
     fig, ax = plt.subplots()
-    ax.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+    ax.plot(fpr, tpr, color='darkorange', lw=2)
     ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.05])
     ax.set_xlabel('False Positive Rate')
     ax.set_ylabel('True Positive Rate')
-    ax.set_title(f'ROC Curve')
+    ax.set_title(f'ROC Curve (AUC = {roc_auc:.2f})')
     ax.grid(True)
 
     outname = os.path.join(outdir, "ROC")

@@ -63,7 +63,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         jets = events.GenJet
         jets = jets[abs(jets.partonFlavour) != 5]
         jets_clean = jets[is_clean(jets, leps, drmin=0.4) & is_clean(jets, nu, drmin=0.4)]
+        jets_clean = jets_clean[ak.argsort(jets_clean.pt, axis=-1, ascending=False)]
 
+        njets = ak.num(jets_clean)
         ######## Event selections ########
 
         selections = PackedSelection()
@@ -74,6 +76,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         weights = events["genWeight"]
 
+
+        padded_jets = ak.pad_none(jets_clean, 3, axis=1)
 
         ######## Fill pandas dataframe ########
 
@@ -89,7 +93,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             "top2eta"   : gen_top.eta[:,1][event_selection_mask],
             "top2phi"   : gen_top.phi[:,1][event_selection_mask],
             "top2mass"  : gen_top.mass[:,1][event_selection_mask],
-            "njets"     : ak.num(jets_clean)[event_selection_mask],
+            "njets"     : njets[event_selection_mask],
+            # "j0pt"      : (ak.where(njets>=1, jets_clean.pt[:,0], 0.0))[event_selection_mask],
+            # "j0eta"     : (ak.where(njets>=1, jets_clean.eta[:,0], 0.0))[event_selection_mask],
+            "j0pt"      : ak.fill_none(padded_jets.pt[:,0], 0.0)[event_selection_mask],
+            "j0eta"     : ak.fill_none(padded_jets.eta[:,0], 0.0)[event_selection_mask],
+            "j1pt"      : ak.fill_none(padded_jets.pt[:,1], 0.0)[event_selection_mask],
+            "j1eta"     : ak.fill_none(padded_jets.eta[:,1], 0.0)[event_selection_mask],
+            "j2pt"      : ak.fill_none(padded_jets.pt[:,2], 0.0)[event_selection_mask],
+            "j2eta"     : ak.fill_none(padded_jets.eta[:,2], 0.0)[event_selection_mask],
+            # "j1pt"      : (ak.where(njets>=2, jets.pt[:,1], 0.0))[event_selection_mask],
+            # "j1eta"     : (ak.where(njets>=2, jets.pt[:,1], 0.0))[event_selection_mask],
+            # "j2pt"      : (ak.where(njets>=3, jets.pt[:,2], 0.0))[event_selection_mask],
+            # "j2eta"     : (ak.where(njets>=3, jets.pt[:,2], 0.0))[event_selection_mask],
         }
 
         outputs = []

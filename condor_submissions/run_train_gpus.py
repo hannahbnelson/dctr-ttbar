@@ -21,10 +21,11 @@ getenv = True
 
 # When job finishes, if not terminated by a signal (e.g. condor_rm), then it must fail gracefully otherwise it's readded to the queue. Counts towards retries
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
-max_retries = 0
+# max_retries = 1
 
 # Use this just in case the last machine had an issue with your code/environment so it doesn't grab the same machine.
-requirements = Machine =!= LastRemoteHost
+# requirements = Machine =!= LastRemoteHost
+requirements = (Machine != "qa-rtx6k-038.crc.nd.edu")
 
 notify_user = hnelson2@nd.edu
 notification = always
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('--outdir', default=f"gpu_{now}", help='name of output directory in dctr/condor_submissions')
     parser.add_argument('--cores',  default=1, help='specify number of cores per job')
     parser.add_argument('--memory', default=32, help='specify memory per job')
-    parser.add_argument('--gpus', default=2, help='specift number of GPUs')
+    parser.add_argument('--gpus', default=1, help='specift number of GPUs')
 
     args = parser.parse_args()
     train_path = args.train

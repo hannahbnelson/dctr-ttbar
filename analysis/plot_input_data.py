@@ -1,42 +1,18 @@
-import datetime
 import pickle
 import gzip
 import shutil
 import os
 import sys
-from pathlib import Path
 import argparse 
-import logging
 import yaml
 
-import hist
 import numpy as np
 import pandas as pd
 import awkward as ak
-import matplotlib.pyplot as plt
 
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torch import optim
-
+import hist
 import mplhep as hep
 import matplotlib.pyplot as plt
-
-def make_standardization_df(df, outdir):
-
-    # make a copy as to not change original df
-    norm_df = df.copy()
-
-    # select only numerical columns
-    numerical_cols = df.select_dtypes(include=np.number).columns
-    means = df.mean()
-    stdvs = df.std()
-
-    means.to_csv(os.path.join(outdir, "standardization_means.csv"), index=True)
-    stdvs.to_csv(os.path.join(outdir, "standardization_stds.csv"), index=True)
-
-    return means, stdvs
 
 
 def standardize_df(df, means, stdvs):
@@ -68,61 +44,45 @@ def plot_inputs(smeft_data, powheg_data, name, title, outdir):
     ax.set_ylabel('Events')
     ax.legend(loc='upper right')
 
-    outname = os.path.join(outdir, title)
+    outname = os.path.join(outdir, f"{title}_{name}")
     fig.savefig(f"{outname}.png")
     print(f"figure saved in {outname}.png") 
 
 
-def main():
+def main(fsmeft, fpowheg, means, stdvs, outdir, title):
 
-    rando = 1234
-    torch.manual_seed(rando)
 
-    # create training datasets
-    train_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/smeft_training.pkl.gz")).drop(['weights'], axis=1)
-    train_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/powheg_training.pkl.gz")).drop(['weights'], axis=1)
+    smeft_df = pickle.load(gzip.open(fsmeft))
+    powheg_df = pickle.load(gzip.open(fpowheg))
 
-    weights_train_smeft = np.ones_like(train_smeft['mtt'])
-    weights_train_powheg = np.ones_like(train_powheg['mtt'])
+    smeft_df = standardize_df(smeft_df, means, stdvs)
+    powheg_df = standardize_df(powheg_df, means, stdvs)
 
-    truth_train_smeft = np.ones_like(train_smeft['mtt'])
-    truth_train_powheg = np.zeros_like(train_powheg['mtt'])
+    for col in smeft_df.columns:
+        plot_inputs(smeft_df[col], powheg_df[col], name=col, title=title, outdir=outdir)
 
-    # create validation datasets
-    validation_smeft = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/smeft_validation.pkl.gz")).drop(['weights'], axis=1)
-    validation_powheg = pickle.load(gzip.open("/users/hnelson2/dctr/analysis/powheg_validation.pkl.gz")).drop(['weights'], axis=1)
-    weights_validation_smeft = np.ones_like(validation_smeft['mtt'])
-    weights_validation_powheg = np.ones_like(validation_powheg['mtt'])
-    truth_validation_smeft = np.ones_like(validation_smeft['mtt'])
-    truth_validation_powheg = np.zeros_like(validation_powheg['mtt'])
-
-    ### standardize inputs
-    # find means and stdvs for each variable using all of the data
-    means, stdvs = make_standardization_df(pd.concat([train_smeft, train_powheg, validation_smeft, validation_powheg]), outdir="/users/hnelson2/dctr/analysis/")
-
-    # use that mean, stdv to standardize all datasets
-    norm_train_smeft = standardize_df(train_smeft, means, stdvs)
-    norm_train_powheg = standardize_df(train_powheg, means, stdvs)
-
-    norm_val_smeft = standardize_df(validation_smeft, means, stdvs)
-    norm_val_powheg = standardize_df(validation_powheg, means, stdvs)
-
-    plotdir = "/users/hnelson2/dctr/analysis/input_data_plots/"
-
-    numerical_cols = train_smeft.select_dtypes(include=np.number).columns
-    
-    for col in numerical_cols:
-        smeft_data = norm_train_smeft[col].to_numpy()
-        powheg_data = norm_train_powheg[col].to_numpy()
-
-        plot_inputs(smeft_data, powheg_data, name=col, title=f"training_{col}", outdir=plotdir)
-
-    for col in numerical_cols:
-        smeft_data = norm_val_smeft[col].to_numpy()
-        powheg_data = norm_val_powheg[col].to_numpy()
-
-        plot_inputs(smeft_data, powheg_data, name=col, title=f"validation_{col}", outdir=plotdir)
 
 
 if __name__=="__main__":
-    main()
+    parser = argparse.ArgumentParser(description='command line arguments')
+    parser.add_argument('--fsmeft', required=True, help="path to smeft dataframe pkl")
+    parser.add_argument('--fpowheg', required=True, help="path to powheg dataframe pkl")
+    parser.add_argument('--outdir', '-o', default='.', help='output directory')
+    parser.add_argument('--title', default='', help='title for plots')
+    parser.add_argument('--config', required=True, help='path to yaml that contains means and stdvs')
+
+    args = parser.parse_args()
+    fsmeft = args.fsmeft
+    fpowheg = args.fpowheg
+    outdir = args.outdir
+    title = args.title
+
+    os.makedirs(outdir, exist_ok=True)
+
+    with open(args.config, 'r') as f: 
+        config_dict = yaml.safe_load(f)
+
+    means = config_dict['means']
+    stdvs = config_dict['stdvs']
+
+    main(fsmeft=fsmeft, fpowheg=fpowheg, means=means, stdvs=stdvs, outdir=outdir, title=title)

@@ -1,4 +1,5 @@
 import datetime
+import time
 import pickle
 import gzip
 import shutil
@@ -163,20 +164,12 @@ def main(outdir, config, cores=1):
     params = config['params']
     inputs = config['inputs']
 
-    means = config['standardization']['means']
-    stdvs = config['standardization']['stdvs']
+    input_dim = inputs['dim']
 
     ### create training datasets
-    train_smeft = pickle.load(gzip.open(inputs['train_smeft'])).drop(['weights'], axis=1)
-    norm_train_smeft = DNN_tools.standardize_df(train_smeft, means, stdvs)
-    del train_smeft
-
-    input_dim = norm_train_smeft.shape[1] 
-    weights_train_smeft = np.ones_like(norm_train_smeft['mtt'], dtype=np.float32)
-    truth_train_smeft = np.zeros_like(norm_train_smeft['mtt'], dtype=np.float32)
-
-    train_smeft_np = norm_train_smeft.to_numpy().astype(np.float32)
-    del norm_train_smeft
+    train_smeft_np = np.load(inputs['train_smeft'])
+    weights_train_smeft = np.ones(train_smeft_np.shape[0], dtype=np.float32)
+    truth_train_smeft = np.zeros(train_smeft_np.shape[0], dtype=np.float32)
 
     smeft_dataset = WeightedDataset(
         data=train_smeft_np, 
@@ -189,15 +182,9 @@ def main(outdir, config, cores=1):
     del weights_train_smeft
     del truth_train_smeft
 
-    train_powheg = pickle.load(gzip.open(inputs['train_powheg'])).drop(['weights'], axis=1)
-    norm_train_powheg = DNN_tools.standardize_df(train_powheg, means, stdvs)
-    del train_powheg
-
-    weights_train_powheg = np.ones_like(norm_train_powheg['mtt'], dtype=np.float32)
-    truth_train_powheg = np.ones_like(norm_train_powheg['mtt'], dtype=np.float32)
-
-    train_powheg_np = norm_train_powheg.to_numpy().astype(np.float32)
-    del norm_train_powheg
+    train_powheg_np = np.load(inputs['train_powheg'])
+    weights_train_powheg = np.ones(train_powheg_np.shape[0], dtype=np.float32)
+    truth_train_powheg = np.ones(train_powheg_np.shape[0], dtype=np.float32)
 
     powheg_dataset = WeightedDataset(
         data=train_powheg_np, 
@@ -212,16 +199,10 @@ def main(outdir, config, cores=1):
     train_dataloader = DataLoader(ConcatDataset([smeft_dataset, powheg_dataset]), batch_size=params['batch_size'], shuffle=True, num_workers=0)
     logging.info(f"created training dataloader")
 
-    ### create validation datasets 
-    val_smeft = pickle.load(gzip.open(inputs['validation_smeft'])).drop(['weights'], axis=1)
-    norm_val_smeft = DNN_tools.standardize_df(val_smeft, means, stdvs)
-    del val_smeft
-
-    weights_val_smeft = np.ones_like(norm_val_smeft['mtt'], dtype=np.float32)
-    truth_val_smeft = np.ones_like(norm_val_smeft['mtt'], dtype=np.float32)
-
-    val_smeft_np = norm_val_smeft.to_numpy().astype(np.float32)
-    del norm_val_smeft
+    ### create validation datasets
+    val_smeft_np = np.load(inputs['validation_smeft'])
+    weights_val_smeft = np.ones(val_smeft_np.shape[0], dtype=np.float32)
+    truth_val_smeft = np.zeros(val_smeft_np.shape[0], dtype=np.float32)
 
     val_smeft_dataset = WeightedDataset(
         data=val_smeft_np, 
@@ -234,15 +215,9 @@ def main(outdir, config, cores=1):
     del weights_val_smeft
     del truth_val_smeft
 
-    val_powheg = pickle.load(gzip.open(inputs['validation_powheg'])).drop(['weights'], axis=1)
-    norm_val_powheg = DNN_tools.standardize_df(val_powheg, means, stdvs)
-    del val_powheg
-
-    weights_val_powheg = np.ones_like(norm_val_powheg['mtt'], dtype=np.float32)
-    truth_val_powheg = np.zeros_like(norm_val_powheg['mtt'], dtype=np.float32)
-
-    val_powheg_np = norm_val_powheg.to_numpy().astype(np.float32)
-    del norm_val_powheg
+    val_powheg_np = np.load(inputs['validation_powheg'])
+    weights_val_powheg = np.ones(val_powheg_np.shape[0], dtype=np.float32)
+    truth_val_powheg = np.ones(val_powheg_np.shape[0], dtype=np.float32)
 
     val_powheg_dataset = WeightedDataset(
         data=val_powheg_np, 
@@ -255,7 +230,7 @@ def main(outdir, config, cores=1):
     del weights_val_powheg
     del truth_val_powheg
 
-    validation_dataloader = DataLoader(ConcatDataset([val_smeft_dataset, val_powheg_dataset]), batch_size=params['batch_size'], shuffle=True, num_workers=0)
+    validation_dataloader = DataLoader(ConcatDataset([val_smeft_dataset, val_powheg_dataset]), batch_size=params['batch_size'], shuffle=True, num_workers=cores)
     logging.info(f"created validation dataloader")
 
     ### initialize model 
@@ -281,15 +256,15 @@ def main(outdir, config, cores=1):
     validation_outputs = {
         'epoch': [],
         'val_loss': [],
-        'val_accuracy': [],
-        'val_precision': [],
-        'val_recall': [],
-        'val_f1_score': [],
-        'val_roc_auc': [],
-        'val_true_pos': [],
-        'val_true_neg': [],
-        'val_false_pos': [],
-        'val_false_neg': [],
+        # 'val_accuracy': [],
+        # 'val_precision': [],
+        # 'val_recall': [],
+        # 'val_f1_score': [],
+        # 'val_roc_auc': [],
+        # 'val_true_pos': [],
+        # 'val_true_neg': [],
+        # 'val_false_pos': [],
+        # 'val_false_neg': [],
     }
 
     best_val_accuracy=0.0
@@ -297,12 +272,13 @@ def main(outdir, config, cores=1):
 
     ### training loop 
     nepochs = params['nepochs']
-    logging.info(f"\n\n -------- TRAINING LOOP: {nepochs} epochs total --------")
+    logging.info(f"\n\n-------- TRAINING LOOP: {nepochs} epochs total --------\n\n")
+
     for epoch in range(nepochs):
-        ### model training
-        # epoch_loss = 0.0
+        
         epoch_loss_gpu = torch.tensor(0.0, device=device) # GPU tensor
-        model.train()   # sets the model in training mode. Crucial for layers that behave differently during training vs evaluation (e.g. dropout, mean, variance)
+        model.train()   # sets the model in training mode
+        
         for batch_samples, batch_weights, batch_targets in train_dataloader:
 
             batch_samples = batch_samples.to(device, dtype=torch.float32)
@@ -314,45 +290,33 @@ def main(outdir, config, cores=1):
             outputs = model(batch_samples).squeeze(1)   # perform the forward pass to get the model's predictions
             loss = loss_fn(outputs, batch_targets)      # calculate the loss ###loss = (loss_fn(outputs, batch_targets) * batch_weights).mean()
             # backward pass
-            loss.backward()                             # calculate the gradients of the loss w.r.t. the model's parameters
+            loss.backward()                             # calculate the gradients of the loss wrt the model's parameters
             optimizer.step()                            # update the model's parameters using the calculated gradients
 
-            epoch_loss_gpu += loss.detach() # Keep loss on GPU and accumulate
+            epoch_loss_gpu += loss.detach()             # Keep loss on GPU and accumulate
 
         train_loss_epoch = epoch_loss_gpu.item() / len(train_dataloader) #once per epoch, the loss is moved from gpu to cpu
         training_outputs['train_loss'].append(train_loss_epoch)
         training_outputs['epoch'].append(epoch+1)
 
-        all_val_outputs = []
-        all_val_targets = []
         epoch_val_loss = torch.tensor(0.0, device=device)
-        model.eval()            # sets the model in evaluation mode
-        with torch.no_grad():   # disable gradient calculations during validation
+        model.eval()                    # sets the model in evaluation mode
+        with torch.no_grad():           # disable gradient calculations during validation
 
             for batch_val_samples, batch_val_weights, batch_val_targets in validation_dataloader: 
 
                 batch_val_samples = batch_val_samples.to(device, dtype=torch.float32)
-                batch_val_weights = batch_val_weights.to(device)
-                batch_val_targets = batch_val_targets.to(device) 
+                batch_val_weights = batch_val_weights.to(device, dtype=torch.float32)
+                batch_val_targets = batch_val_targets.to(device, dtype=torch.float32) 
 
                 batch_val_outputs = model(batch_val_samples).squeeze(1)
                 batch_val_loss = loss_fn(batch_val_outputs, batch_val_targets)
 
                 epoch_val_loss += batch_val_loss.detach()           # Keep loss on GPU and accumulate
-                all_val_targets.append(batch_val_targets.detach())
-                all_val_outputs.append(batch_val_outputs.detach())
-
 
         val_loss_epoch = epoch_val_loss.item()/len(validation_dataloader)
         validation_outputs['val_loss'].append(val_loss_epoch)
         validation_outputs['epoch'].append(epoch+1)    
-
-        val_targets = torch.cat(all_val_targets).cpu().numpy()
-        val_outputs_all = torch.cat(all_val_outputs).cpu().numpy()
-        val_predictions = (val_outputs_all > 0.5).astype(int)       # creates boolean tensor from outputs (0 to 1)
-
-        val_roc_auc = roc_auc_score(val_targets, val_predictions) 
-        validation_outputs['val_roc_auc'].append(val_roc_auc)
 
         scheduler.step(val_loss_epoch)
 
@@ -368,20 +332,25 @@ def main(outdir, config, cores=1):
             torch.save(model.state_dict(), checkpoint_path)
             logging.info(f"---> Model checkpoint saved for epoch {epoch+1}")
 
+            checkpint_metrics_path = os.path.join(output_dir, f"metrics_checkpoint_epoch_{epoch+1}.yaml")
+            with open(checkpint_metrics_path, 'w') as f:
+                yaml.safe_dump({'training': training_outputs, 'validation': validation_outputs}, f)
+            logging.info(f"checkpoint of training metrics saved to {checkpint_metrics_path}")
 
-    logging.info(f"--------  TRAINING LOOP FINISHED  -------- \n\n")
+
+    logging.info(f"\n\n--------  TRAINING LOOP COMPLETE  --------\n\n")
 
 
     ### Save Final Model & Training/Validation Metrics to yaml ###
     training_outputs_path = os.path.join(output_dir, "training_metrics.yaml")
     with open(training_outputs_path, 'w') as f:
-        yaml.safe_dump(training_outputs, f)
+        yaml.safe_dump({'training': training_outputs, 'validation': validation_outputs}, f)
     logging.info(f"training metrics saved to {training_outputs_path}")
 
-    validation_outputs_path = os.path.join(output_dir, "validation_metrics.yaml")
-    with open(validation_outputs_path, 'w') as f:
-        yaml.safe_dump(validation_outputs, f)
-    logging.info(f"validation metrics saved to {validation_outputs_path}")
+    # validation_outputs_path = os.path.join(output_dir, "validation_metrics.yaml")
+    # with open(validation_outputs_path, 'w') as f:
+    #     yaml.safe_dump(validation_outputs, f)
+    # logging.info(f"validation metrics saved to {validation_outputs_path}")
 
     final_model_path = os.path.join(output_dir, "final_model.pt")
     torch.save(model.state_dict(), final_model_path)
@@ -392,20 +361,20 @@ def main(outdir, config, cores=1):
         val_smeft_dataset, 
         batch_size=params['batch_size'], 
         shuffle=False, 
-        num_workers=0
+        num_workers=cores
     )
     powheg_val_dataloader = DataLoader(
         val_powheg_dataset, 
         batch_size=params['batch_size'], 
         shuffle=False, 
-        num_workers=0
+        num_workers=cores
     )
 
     full_val_dataloader = DataLoader(
         ConcatDataset([val_smeft_dataset, val_powheg_dataset]),
         batch_size=params['batch_size'],
         shuffle=False,
-        num_workers=0,
+        num_workers=cores,
     )
 
     full_val_true_labels = []
@@ -465,3 +434,5 @@ if __name__=="__main__":
         os.makedirs(out, exist_ok=False)
 
     main(outdir=out, config=config_dict, cores = ncores)
+
+
